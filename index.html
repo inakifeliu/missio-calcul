@@ -1,0 +1,1551 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Missió Càlcul</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Chakra+Petch:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: cockpit — fixed starfield behind bezelled instrument panels; tablet-first, landscape splits screen | keypad, portrait stacks */
+:root{
+  color-scheme: dark;
+  --void:#060a17; --hull:#0f1730; --panel:#141e3a; --panel-2:#1b2850; --line:#2b3c6b; --line-hi:#3d5494;
+  --text:#e8eeff; --dim:#8e9cc8;
+  --amber:#ffb547; --amber-dim:#7a5622; --cyan:#62e7ff; --ok:#6cf08a; --alert:#ff5d5d; --violet:#b892ff;
+  --f-display:'Chakra Petch','Trebuchet MS',sans-serif;
+  --f-body:'Atkinson Hyperlegible',system-ui,sans-serif;
+  --f-mono:'Share Tech Mono',ui-monospace,monospace;
+  --hullc:#dfe6f5;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--void);color:var(--text);font-family:var(--f-body);font-size:17px;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+#stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+#app{position:relative;z-index:1;min-height:100%;padding-inline:16px;padding-block:12px;box-sizing:border-box;display:flex;flex-direction:column}
+.screen{flex:1;display:flex;flex-direction:column;gap:12px;max-width:1200px;width:100%;margin:0 auto;min-height:0}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+
+/* Panels */
+.panel{background:linear-gradient(180deg,var(--panel-2),var(--panel) 40%);border:2px solid var(--line);border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 24px rgba(0,0,0,.45);position:relative;padding:14px}
+.panel-tag{position:absolute;top:-11px;left:14px;background:var(--void);border:1px solid var(--line);border-radius:6px;padding:1px 8px;font:12px var(--f-mono);letter-spacing:.12em;color:var(--amber)}
+.label{font:600 12px var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:.02em}
+
+.btn{border:2px solid var(--line-hi);background:var(--panel-2);border-radius:12px;padding:12px 18px;font:700 16px var(--f-display);letter-spacing:.08em;text-transform:uppercase;transition:transform .08s,background .15s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:translateY(2px)}
+.btn.primary{background:linear-gradient(180deg,#ffc76e,var(--amber));color:#1e1300;border-color:#ffd99a;box-shadow:0 0 0 4px rgba(255,181,71,.15),0 6px 0 #9a6413}
+.btn.primary:active{box-shadow:0 0 0 4px rgba(255,181,71,.15),0 2px 0 #9a6413;transform:translateY(4px)}
+.btn.ghost{background:transparent}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar .who{display:flex;flex-direction:column;min-width:0;flex:1}
+.who .nm{font:700 20px var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who .sh{font:14px var(--f-mono);color:var(--cyan)}
+.chip{font:600 12px var(--f-display);letter-spacing:.12em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.pts{font:22px var(--f-mono);color:var(--amber)}
+.icon-btn{width:48px;height:48px;border-radius:12px;border:2px solid var(--line);background:var(--panel);display:grid;place-items:center;font-size:20px}
+
+/* Ship */
+.ship{width:150px;height:76px;display:block;overflow:visible}
+.ship .flame{transform-origin:34px 40px;animation:flick .12s infinite alternate}
+.ship.boost .flame{animation:boost .6s ease-out}
+@keyframes flick{from{transform:scaleX(.85)}to{transform:scaleX(1.1)}}
+@keyframes boost{0%{transform:scaleX(1)}30%{transform:scaleX(2.6)}100%{transform:scaleX(1)}}
+.bob{animation:bob 3s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* Planet */
+.planet{border-radius:50%;position:relative;flex:none;box-shadow:inset -6px -6px 14px rgba(0,0,0,.55),0 0 18px rgba(120,170,255,.15)}
+.planet.ring::after{content:"";position:absolute;left:-30%;right:-30%;top:42%;height:16%;border-radius:50%;border:3px solid rgba(255,225,160,.75);transform:rotate(-14deg);box-sizing:border-box}
+
+/* Bridge */
+.bridge{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:16px;flex:1;min-height:0}
+.status{display:flex;flex-direction:column;gap:14px}
+.window{height:140px;border-radius:12px;border:3px solid #33477e;background:radial-gradient(ellipse at 70% 40%,rgba(98,231,255,.08),transparent 60%),rgba(3,6,16,.55);position:relative;overflow:hidden;display:flex;align-items:center;padding-left:24px;box-shadow:inset 0 0 30px rgba(0,0,0,.8)}
+.window .far{position:absolute;right:20px;top:18px}
+.window::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.07),transparent 35%);pointer-events:none}
+.rank-row{display:flex;align-items:center;gap:14px}
+.dial{width:96px;height:96px;flex:none}
+.rank-name{font:700 22px var(--f-display);color:var(--amber)}
+.readouts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.readout{background:rgba(3,6,16,.6);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.readout .v{font:26px var(--f-mono);color:var(--cyan);line-height:1.1}
+.btn-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.btn-row .btn{padding:10px 6px;font-size:13px}
+.launch{width:100%;padding:16px;font-size:18px;flex-direction:column;gap:2px}
+.map{padding-top:26px}
+.map>.panel-tag{top:6px}
+.launch small{display:block;font:500 13px var(--f-body);letter-spacing:0;text-transform:none;opacity:.8}
+
+.map{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:22px}
+.sector h2{font-size:18px;color:var(--cyan);margin-bottom:4px}
+.sector p{margin:0 0 12px;color:var(--dim);font-size:14px}
+.nodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.node{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:12px 8px;border-radius:12px;border:2px solid var(--line);background:rgba(10,16,36,.75);position:relative;min-width:0}
+.node .nm{font:700 16px var(--f-display)}
+.node .sk{font-size:13px;color:var(--dim);line-height:1.25;min-height:2.5em}
+.node .st{font-size:18px;letter-spacing:2px;color:var(--amber)}
+.node .st .off{color:#3a4670}
+.node.locked{opacity:.4;filter:grayscale(.8)}
+.node.target{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,181,71,.2),0 0 22px rgba(255,181,71,.25)}
+.node.target::before{content:attr(data-target);position:absolute;top:-10px;font:700 11px var(--f-display);letter-spacing:.15em;background:var(--amber);color:#1e1300;border-radius:6px;padding:1px 8px}
+.node .lock{font:12px var(--f-mono);color:var(--dim)}
+.sector.closed .nodes{opacity:.5}
+.lock-banner{border:1px dashed var(--line-hi);border-radius:10px;padding:10px 12px;color:var(--dim);font-size:14px;margin-bottom:10px}
+
+/* Mission */
+.m-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:stretch}
+.route{display:flex;flex-direction:column;gap:6px;min-width:0}
+.route .ttl{font:700 18px var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{position:relative;height:30px;display:flex;align-items:center;gap:8px}
+.track .bar{flex:1;height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,#33477e 0 8px,transparent 8px 14px);position:relative}
+.track .fill{position:absolute;left:0;top:0;bottom:0;background:var(--cyan);border-radius:3px;transition:width .6s cubic-bezier(.3,1.4,.5,1);box-shadow:0 0 10px var(--cyan)}
+.track .marker{position:absolute;top:50%;width:34px;height:18px;transform:translate(-50%,-50%);transition:left .6s cubic-bezier(.3,1.4,.5,1)}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px}
+.shields{display:flex;gap:4px}
+.shields i{width:18px;height:26px;border-radius:4px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);transition:all .3s}
+.shields i.off{background:#24304f;box-shadow:none}
+.fuel{display:flex;gap:3px;align-items:flex-end;height:26px}
+.fuel i{width:9px;border-radius:2px;background:#2a2a20;transition:background .3s}
+.fuel i.on{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.score{font:26px var(--f-mono);color:var(--amber)}
+
+.m-body{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:14px;min-height:0}
+.m-left{display:flex;flex-direction:column;gap:12px;min-width:0}
+.m-window{height:110px;padding-left:30px}
+.m-window .ship-wrap{transition:transform .5s cubic-bezier(.3,1.5,.5,1)}
+.m-window .ship-wrap.push{transform:translateX(60px)}
+.asteroid{position:absolute;width:44px;height:38px;border-radius:45% 55% 50% 40%;background:radial-gradient(circle at 35% 35%,#8b7b6b,#4a3e33 70%);top:30px;right:-60px;box-shadow:inset -5px -5px 8px rgba(0,0,0,.5)}
+.asteroid.fly{animation:astro .9s linear forwards}
+@keyframes astro{to{right:110%;transform:rotate(-260deg)}}
+.streak{position:absolute;right:14px;bottom:10px;font:14px var(--f-mono);color:var(--amber)}
+
+.navscreen{flex:1;min-height:220px;border-radius:14px;border:3px solid #2a4f5c;background:radial-gradient(ellipse at center,rgba(20,60,70,.55),rgba(3,10,16,.92));box-shadow:inset 0 0 40px rgba(0,0,0,.8),0 0 0 1px #0e2229;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+.navscreen::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(98,231,255,.04) 0 2px,transparent 2px 4px);pointer-events:none}
+.navscreen .cap{position:absolute;top:10px;left:14px;font:12px var(--f-mono);letter-spacing:.15em;color:#4fb8c9}
+.expr{font:700 clamp(40px,7vw,76px) var(--f-display);color:var(--cyan);text-shadow:0 0 18px rgba(98,231,255,.45);display:flex;align-items:center;gap:.3em;flex-wrap:wrap;justify-content:center;font-variant-numeric:tabular-nums;line-height:1}
+.slot{min-width:1.6em;padding:.08em .25em;border:3px solid var(--amber);border-radius:12px;color:var(--amber);text-align:center;text-shadow:0 0 14px rgba(255,181,71,.5);background:rgba(255,181,71,.06);position:relative}
+.slot.empty::after{content:"";display:inline-block;width:.08em;height:.8em;background:var(--amber);animation:blink 1s steps(1) infinite;vertical-align:-.05em}
+@keyframes blink{50%{opacity:0}}
+.slot.ok{border-color:var(--ok);color:var(--ok)}
+.slot.bad{border-color:var(--alert);color:var(--alert)}
+.groups{display:flex;flex-direction:column;gap:6px;align-items:center}
+.groups .row{display:flex;gap:6px;padding:4px 8px;border:1px dashed rgba(98,231,255,.35);border-radius:8px}
+.crate{width:22px;height:22px;border-radius:4px;background:linear-gradient(135deg,#ffcf7a,#d48a1f);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+.groups .gl{font:14px var(--f-mono);color:#7fd8e6}
+
+.fb{position:absolute;inset:0;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px;text-align:center;z-index:2}
+.fb.okmsg{pointer-events:none}
+.fb .big{font:700 34px var(--f-display);letter-spacing:.06em}
+.fb.okmsg .big{color:var(--ok);text-shadow:0 0 16px rgba(108,240,138,.6);animation:pop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+.fb.badmsg{background:#1c0710}
+.fb.badmsg .big{color:var(--alert);font-size:26px}
+.hint{font-size:18px;line-height:1.5;max-width:34em}
+.hint .ans{font:700 34px var(--f-display);color:var(--amber)}
+.hint ol{margin:6px 0 0;padding-left:1.2em;text-align:left;font-family:var(--f-mono);font-size:19px;color:var(--text)}
+.dots{display:inline-grid;gap:4px;margin:4px auto}
+.dots i{width:10px;height:10px;border-radius:50%;background:var(--cyan)}
+.floater{position:absolute;font:700 26px var(--f-display);color:var(--amber);pointer-events:none;animation:floatup 1s ease-out forwards;z-index:3}
+@keyframes floatup{to{transform:translateY(-70px);opacity:0}}
+
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:stretch}
+.key{border:2px solid var(--line-hi);border-radius:14px;background:linear-gradient(180deg,#24335f,#18234a);font:700 32px var(--f-display);min-height:64px;box-shadow:0 5px 0 #0b1229;transition:transform .05s,box-shadow .05s}
+.key:active,.key.press{transform:translateY(4px);box-shadow:0 1px 0 #0b1229}
+.key.del{font-size:22px;color:var(--alert)}
+.key.go{grid-column:span 3;background:linear-gradient(180deg,#7df59a,#3fc566);color:#062010;border-color:#a8ffbe;box-shadow:0 5px 0 #1d6b33;font-size:24px;letter-spacing:.1em}
+.key.go:active,.key.go.press{box-shadow:0 1px 0 #1d6b33}
+.keypad.locked .key{opacity:.5;pointer-events:none}
+
+.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translate(-8px,3px)}40%{transform:translate(7px,-4px)}60%{transform:translate(-5px,2px)}80%{transform:translate(4px,-1px)}}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 40%,rgba(255,40,40,.45));opacity:0}
+#flash.on{animation:fl .6s}
+@keyframes fl{0%,60%{opacity:1}100%{opacity:0}}
+
+/* Onboarding / result */
+.center{flex:1;display:flex;align-items:center;justify-content:center}
+.card{max-width:560px;width:100%;display:flex;flex-direction:column;gap:16px}
+.card h1{font-size:30px;color:var(--amber)}
+.card p{margin:0;line-height:1.5;color:var(--text)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field input{font:700 22px var(--f-display);background:rgba(3,6,16,.7);border:2px solid var(--line-hi);border-radius:10px;color:var(--cyan);padding:12px 14px;width:100%;box-sizing:border-box}
+.result-planet{display:flex;justify-content:center;padding:10px 0}
+.result-planet .planet{animation:arrive 1.2s cubic-bezier(.2,1,.3,1)}
+@keyframes arrive{from{transform:scale(.1);opacity:0}}
+.big-stars{display:flex;justify-content:center;gap:12px;font-size:56px;line-height:1}
+.big-stars span{color:#2c3760;transition:color .2s}
+.big-stars span.on{color:var(--amber);text-shadow:0 0 20px rgba(255,181,71,.7);animation:pop .5s cubic-bezier(.3,1.8,.5,1)}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.res-grid .readout{text-align:center}
+.res-actions{display:flex;gap:10px;flex-wrap:wrap}
+.res-actions .btn{flex:1;min-width:160px}
+.newach{display:flex;flex-direction:column;gap:6px}
+
+/* Modal */
+#modal{position:fixed;inset:0;z-index:10;background:rgba(2,4,12,.75);display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}
+#modal .panel>*{flex-shrink:0}
+#modal .panel{max-width:720px;width:100%;max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.ach{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px;background:rgba(3,6,16,.5)}
+.ach .badge{width:46px;height:46px;flex:none;display:grid;place-items:center;clip-path:polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%);background:var(--amber);color:#1e1300;font:700 16px var(--f-display)}
+.ach.off .badge{background:#2a3558;color:#55618a}
+.ach.off .an{color:var(--dim)}
+.ach .an{font:700 15px var(--f-display)}
+.ach .ad{font-size:13px;color:var(--dim)}
+.hulls{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.hull{border:2px solid var(--line);border-radius:12px;padding:10px;background:rgba(3,6,16,.5);display:flex;flex-direction:column;align-items:center;gap:6px}
+.hull.sel{border-color:var(--amber)}
+.hull[disabled]{opacity:.4}
+.hull .ship{width:110px;height:56px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.tbl td.n{font-family:var(--f-mono);text-align:right}
+.tbl-wrap{overflow-x:auto}
+.danger{border-color:var(--alert);color:var(--alert)}
+.setrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* Toasts */
+#toasts{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));right:16px;left:16px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.toast{display:flex;gap:10px;align-items:center;background:linear-gradient(180deg,#2b2410,#1b170a);border:2px solid var(--amber);border-radius:12px;padding:10px 14px;max-width:340px;box-shadow:0 10px 30px rgba(0,0,0,.6);animation:tin .5s cubic-bezier(.3,1.5,.5,1)}
+.toast.out{animation:tout .4s forwards}
+.toast .badge{width:40px;height:40px;flex:none;display:grid;place-items:center;clip-path:polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%);background:var(--amber);color:#1e1300;font:700 14px var(--f-display)}
+.toast .tt{font:600 11px var(--f-display);letter-spacing:.15em;color:var(--amber)}
+.toast .tn{font:700 16px var(--f-display)}
+@keyframes tin{from{transform:translateX(120%)}}
+@keyframes tout{to{transform:translateX(120%);opacity:0}}
+
+/* Responsive */
+@media (max-width:860px){
+  .bridge{grid-template-columns:1fr}
+  .m-body{grid-template-columns:1fr}
+  .keypad{grid-template-columns:repeat(3,1fr)}
+  .key{min-height:58px}
+  .navscreen{min-height:200px}
+}
+@media (max-width:520px){
+  .m-head{grid-template-columns:1fr 1fr}
+  .m-head .route{grid-column:1/-1}
+  .res-grid{grid-template-columns:1fr 1fr}
+  .m-window{display:none}
+  .btn-row .btn{font-size:12px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* Stacked (column) arithmetic */
+.stack{--cw:clamp(40px,6.4vw,56px);display:flex;flex-direction:column;gap:3px;font:700 clamp(28px,4.6vw,42px) var(--f-display);color:var(--cyan);font-variant-numeric:tabular-nums;position:relative;z-index:1}
+.stack.mini{--cw:34px;font-size:24px;gap:2px}
+.srow{display:grid;grid-template-columns:calc(var(--cw)*.7) repeat(var(--n),var(--cw));gap:4px;align-items:center;justify-items:center}
+.ssign{color:var(--cyan)}
+.sd{height:calc(var(--cw)*1.02);display:grid;place-items:center;position:relative;text-shadow:0 0 14px rgba(98,231,255,.4)}
+.sd.struck{color:#4d8a98}
+.sd.struck::after{content:"";position:absolute;left:12%;right:12%;top:50%;height:3px;background:var(--alert);transform:rotate(-24deg)}
+.sc{width:calc(var(--cw)*.66);height:calc(var(--cw)*.66);padding:0;font:700 .58em var(--f-display);border:2px dashed #8a6a33;border-radius:8px;background:rgba(255,181,71,.05);color:var(--amber);display:grid;place-items:center}
+.sr{width:var(--cw);height:calc(var(--cw)*1.12);padding:0;border:3px solid var(--line-hi);border-radius:10px;background:rgba(255,181,71,.04);color:var(--amber);font:inherit;display:grid;place-items:center}
+.stack.mini .sr{border-width:2px}
+.sc.sel,.sr.sel{border:3px solid var(--amber);background:rgba(255,181,71,.16);box-shadow:0 0 14px rgba(255,181,71,.45)}
+.sr.ok,.sc.ok{border-color:var(--ok);color:var(--ok);border-style:solid}
+.sr.bad{border-color:var(--alert);color:var(--alert);background:rgba(255,93,93,.12)}
+.sc.warn{border:3px solid var(--alert);background:rgba(255,93,93,.12)}
+.sline{height:4px;width:100%;background:var(--cyan);border-radius:2px;box-shadow:0 0 8px rgba(98,231,255,.6)}
+.tip{font-size:15px;color:#9fdbe6;text-align:center;max-width:32em;position:relative;z-index:1}
+#scr-mission.stackmode .m-window{height:64px}
+#scr-mission.stackmode .m-window .ship{width:100px;height:50px}
+.fb.okmsg.banner{justify-content:flex-end;padding-bottom:14px}
+.fb.okmsg .sub{font:600 17px var(--f-body);color:var(--amber);background:rgba(20,14,0,.85);border:1px solid var(--amber);border-radius:10px;padding:6px 12px}
+.sol{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.sol ol{font-size:16px}
+
+/* Profiles */
+.prof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.prof{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 12px;border-radius:14px;border:2px solid var(--line);background:rgba(10,16,36,.8);text-align:center}
+.prof:hover{border-color:var(--amber)}
+.prof .nm{font:700 20px var(--f-display)}
+.prof .rk{font:14px var(--f-mono);color:var(--amber)}
+.prof .sh{font-size:13px;color:var(--dim)}
+.prof.add{border-style:dashed;justify-content:center;min-height:150px;color:var(--cyan);font:700 18px var(--f-display);letter-spacing:.06em}
+
+/* Report */
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs .btn{padding:8px 14px;font-size:14px}
+.tabs .btn.on{border-color:var(--amber);color:var(--amber)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{background:rgba(3,6,16,.6);border:1px solid var(--line);border-radius:10px;padding:10px}
+.tile .v{font:24px var(--f-mono);color:var(--cyan);line-height:1.2}
+.tile .s{font-size:13px;color:var(--dim)}
+.up{color:var(--ok)}.down{color:var(--alert)}
+.chart{width:100%;height:auto;display:block}
+.chart .bar{fill:var(--cyan)}
+.chart .bar.today{fill:var(--amber)}
+.chart .grid{stroke:#24305a;stroke-width:1}
+.chart text{fill:var(--dim);font:11px 'Share Tech Mono',monospace}
+.sec-h{font:700 15px var(--f-display);color:var(--cyan);letter-spacing:.06em;text-transform:uppercase;margin-top:6px}
+.meter{height:8px;background:#24305a;border-radius:4px;overflow:hidden;min-width:60px}
+.meter i{display:block;height:100%;background:var(--ok)}
+.note{font-size:15px;line-height:1.5;color:var(--text);margin:0}
+.seg{display:inline-flex;border:2px solid var(--line-hi);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:8px 12px;font:600 14px var(--f-display)}
+.seg button.on{background:var(--amber);color:#1e1300}
+.lang-slot{display:flex}
+.seg button{min-width:44px;min-height:40px}
+</style>
+
+</head>
+<body>
+<canvas id="stars" aria-hidden="true"></canvas>
+<div id="flash"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<div id="app">
+  <!-- PROFILES -->
+  <section class="screen" id="scr-profiles" hidden>
+    <div class="topbar">
+      <div class="who"><span class="nm" data-i18n="p.title"></span><span class="sh" data-i18n="p.sub"></span></div>
+      <div class="lang-slot"></div>
+      <button class="btn" id="p-parents" data-i18n="parents"></button>
+    </div>
+    <div class="panel">
+      <span class="panel-tag" data-i18n="crew"></span>
+      <div class="prof-grid" id="p-grid"></div>
+    </div>
+  </section>
+
+  <!-- ONBOARDING -->
+  <section class="screen" id="scr-onboard" hidden>
+    <div class="center">
+      <div class="panel card">
+        <span class="panel-tag" data-i18n="academy"></span>
+        <div class="lang-slot" style="align-self:flex-end"></div>
+        <div style="display:flex;justify-content:center"><div class="bob" id="ob-ship"></div></div>
+        <h1 data-i18n="ob.h"></h1>
+        <p data-i18n="ob.p"></p>
+        <div class="field"><label class="label" for="in-name" data-i18n="ob.name"></label><input id="in-name" maxlength="16" autocomplete="off" data-i18n-ph="ob.namePh"></div>
+        <div class="field"><label class="label" for="in-ship" data-i18n="ob.ship"></label><input id="in-ship" maxlength="16" autocomplete="off" placeholder="Estel-1"></div>
+        <button class="btn primary launch" id="ob-go"><span data-i18n="ob.go"></span><small data-i18n="ob.goSmall"></small></button>
+        <button class="btn ghost" id="ob-cancel" hidden data-i18n="ob.cancel"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BRIDGE -->
+  <section class="screen" id="scr-bridge" hidden>
+    <div class="topbar">
+      <div class="who"><span class="nm" id="b-name"></span><span class="sh" id="b-shipname"></span></div>
+      <span class="pts mono" id="b-pts"></span>
+      <button class="btn" id="b-switch" style="padding:10px 12px;font-size:13px" data-i18n="switchBtn"></button>
+      <button class="icon-btn" id="b-mute" data-i18n-aria="muteAria"></button>
+      <button class="icon-btn" id="b-settings" data-i18n-aria="optionsAria">⚙</button>
+    </div>
+    <div class="bridge">
+      <div class="panel status">
+        <span class="panel-tag" data-i18n="shipStatus"></span>
+        <div class="window" id="b-window"><div class="far" id="b-far"></div><div class="bob" id="b-ship"></div></div>
+        <div class="rank-row">
+          <svg class="dial" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#24305a" stroke-width="10"/>
+            <circle id="b-dial" cx="50" cy="50" r="42" fill="none" stroke="#ffb547" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)" style="transition:stroke-dashoffset 1s"/>
+            <text id="b-ranknum" x="50" y="58" text-anchor="middle" fill="#ffb547" font-family="Chakra Petch, sans-serif" font-weight="700" font-size="26"></text>
+          </svg>
+          <div style="min-width:0">
+            <div class="label" data-i18n="rank"></div>
+            <div class="rank-name" id="b-rank"></div>
+            <div class="mono" style="color:var(--dim);font-size:14px" id="b-next"></div>
+          </div>
+        </div>
+        <div class="readouts">
+          <div class="readout"><div class="label" data-i18n="correct"></div><div class="v" id="r-ok"></div></div>
+          <div class="readout"><div class="label" data-i18n="bestStreak"></div><div class="v" id="r-streak"></div></div>
+          <div class="readout"><div class="label" data-i18n="achievements"></div><div class="v" id="r-ach"></div></div>
+          <div class="readout"><div class="label" data-i18n="flightDays"></div><div class="v" id="r-days"></div></div>
+        </div>
+        <button class="btn primary launch" id="b-launch"></button>
+        <div class="btn-row">
+          <button class="btn" id="b-ach" data-i18n="achievements"></button>
+          <button class="btn" id="b-hangar" data-i18n="hangar"></button>
+          <button class="btn" id="b-repair"></button>
+        </div>
+      </div>
+      <div class="panel map" id="b-map">
+        <span class="panel-tag" data-i18n="starMap"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MISSION -->
+  <section class="screen" id="scr-mission" hidden>
+    <div class="m-head">
+      <div class="panel route">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <span class="ttl" id="m-title"></span>
+          <button class="btn ghost" id="m-abort" style="padding:6px 10px;font-size:12px" data-i18n="back"></button>
+        </div>
+        <div class="track"><div id="m-from"></div><div class="bar"><div class="fill" id="m-fill"></div><svg class="marker" id="m-marker" viewBox="0 0 160 80"></svg></div><div id="m-to"></div></div>
+      </div>
+      <div class="panel gauge"><span class="label" data-i18n="shields"></span><div class="shields" id="m-shields"></div></div>
+      <div class="panel gauge"><span class="label" data-i18n="fuel"></span><div class="fuel" id="m-fuel"></div><span class="score mono" id="m-score">0</span></div>
+    </div>
+    <div class="m-body">
+      <div class="m-left">
+        <div class="window m-window" id="m-window"><div class="ship-wrap" id="m-shipwrap"><div class="bob" id="m-ship"></div></div><div class="asteroid" id="m-ast"></div><span class="streak" id="m-streak"></span></div>
+        <div class="navscreen" id="m-screen">
+          <span class="cap" id="m-cap"></span>
+          <div class="groups" id="m-groups" hidden></div>
+          <div class="expr" id="m-expr" aria-live="polite"></div>
+          <div id="m-stack" hidden></div>
+          <div class="tip" id="m-tip" hidden></div>
+          <div id="m-fb"></div>
+        </div>
+      </div>
+      <div class="panel keypad" id="kp">
+        <span class="panel-tag" data-i18n="dataInput"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="scr-result" hidden>
+    <div class="center">
+      <div class="panel card" id="res-card"></div>
+    </div>
+  </section>
+</div>
+
+<div id="modal" hidden><div class="panel" id="modal-body"></div></div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const dig=(n,i)=>Math.floor(n/10**i)%10;
+const len=n=>String(n).length;
+
+/* ================= i18n dictionary [ca, es, en] ================= */
+const LANGS=['ca','es','en'];
+const LOCALE={ca:'ca-ES',es:'es-ES',en:'en-GB'};
+const D={
+  appName:["Missió Càlcul","Misión Cálculo","Math Mission"],
+  "p.title":["Tria el comandant","Elige al comandante","Choose your commander"],
+  "p.sub":["ACADÈMIA ESPACIAL · TRIPULACIÓ","ACADEMIA ESPACIAL · TRIPULACIÓN","SPACE ACADEMY · CREW"],
+  parents:["Zona de pares","Zona de padres","Parents' area"],
+  crew:["TRIPULACIÓ","TRIPULACIÓN","CREW"],
+  academy:["ACADÈMIA ESPACIAL","ACADEMIA ESPACIAL","SPACE ACADEMY"],
+  "ob.h":["Benvingut a bord, cadet","Bienvenido a bordo, cadete","Welcome aboard, cadet"],
+  "ob.p":["Pilotaràs una nau que només funciona si l'ordinador de navegació rep els càlculs correctes. Cada encert encén els motors i et porta més lluny.","Pilotarás una nave que solo funciona si el ordenador de navegación recibe los cálculos correctos. Cada acierto enciende los motores y te lleva más lejos.","You'll fly a ship that only works if the navigation computer gets the right answers. Every correct answer fires the engines and takes you further."],
+  "ob.name":["Nom del comandant","Nombre del comandante","Commander's name"],
+  "ob.namePh":["Escriu el teu nom","Escribe tu nombre","Type your name"],
+  "ob.nameReq":["Necessitem el teu nom, comandant","Necesitamos tu nombre, comandante","We need your name, commander"],
+  "ob.ship":["Nom de la nau","Nombre de la nave","Ship's name"],
+  "ob.go":["Començar el calibratge","Empezar la calibración","Start calibration"],
+  "ob.goSmall":["L'ordinador farà unes preguntes per saber el teu nivell","El ordenador hará unas preguntas para saber tu nivel","The computer will ask a few questions to find your level"],
+  "ob.cancel":["Tornar a la tripulació","Volver a la tripulación","Back to the crew"],
+  lang:["Idioma","Idioma","Language"],
+  switchBtn:["Canviar","Cambiar","Switch"],
+  shipStatus:["ESTAT DE LA NAU","ESTADO DE LA NAVE","SHIP STATUS"],
+  starMap:["MAPA ESTEL·LAR","MAPA ESTELAR","STAR MAP"],
+  rank:["Rang","Rango","Rank"],
+  correct:["Encerts","Aciertos","Correct"],
+  bestStreak:["Millor ratxa","Mejor racha","Best streak"],
+  achievements:["Fites","Logros","Achievements"],
+  flightDays:["Dies de vol","Días de vuelo","Flight days"],
+  hangar:["Hangar","Hangar","Hangar"],
+  workshop:["Taller","Taller","Workshop"],
+  workshopN:["Taller ({n})","Taller ({n})","Workshop ({n})"],
+  back:["Tornar","Volver","Back"],
+  shields:["Escuts","Escudos","Shields"],
+  fuel:["Combustible","Combustible","Fuel"],
+  navComputer:["ORDINADOR DE NAVEGACIÓ","ORDENADOR DE NAVEGACIÓN","NAVIGATION COMPUTER"],
+  dataInput:["ENTRADA DE DADES","ENTRADA DE DATOS","DATA INPUT"],
+  "key.del":["⌫ Esborrar","⌫ Borrar","⌫ Delete"],
+  "key.go":["ENVIAR ▸","ENVIAR ▸","SEND ▸"],
+  muteAria:["Activar o silenciar el so","Activar o silenciar el sonido","Turn sound on or off"],
+  optionsAria:["Opcions","Opciones","Options"],
+  close:["Tancar","Cerrar","Close"],
+  cmd:["Comandant {n}","Comandante {n}","Commander {n}"],
+  ship:["Nau {n}","Nave {n}","Ship {n}"],
+  nextRank:["{n} pts per a {r}","{n} pts para {r}","{n} pts to {r}"],
+  maxRank:["Rang màxim","Rango máximo","Top rank"],
+  launchTo:["Enlairar cap a {p}","Despegar hacia {p}","Launch to {p}"],
+  "secA.h":["Cinturó de Sumes i Restes","Cinturón de Sumas y Restas","Addition & Subtraction Belt"],
+  "secA.p":["Cada planeta barreja càlcul mental i càlcul en columna. Amb 8 encerts de 10 obres el següent.","Cada planeta mezcla cálculo mental y cálculo en columna. Con 8 aciertos de 10 abres el siguiente.","Each planet mixes mental maths and column sums. Get 8 out of 10 to unlock the next one."],
+  "secB.h":["Sector Multiplicador","Sector Multiplicador","Multiplication Sector"],
+  "secB.p":["Primer aprendràs què vol dir multiplicar amb grups de caixes. Després, les taules una a una.","Primero aprenderás qué quiere decir multiplicar con grupos de cajas. Después, las tablas una a una.","First you'll learn what multiplying means with groups of crates. Then the times tables, one by one."],
+  "secB.lock":["Sector tancat. S'obre quan conquereixis Saturn (sumes i restes barrejades fins a 100).","Sector cerrado. Se abre cuando conquistes Saturno (sumas y restas mezcladas hasta 100).","Sector locked. It opens when you conquer Saturn (mixed addition and subtraction to 100)."],
+  target:["DESTÍ","DESTINO","TARGET"],
+  locked:["BLOQUEJAT","BLOQUEADO","LOCKED"],
+  calibPassed:["Superat al calibratge","Superado en la calibración","Passed in calibration"],
+  profRank:["{r} · {n} pts","{r} · {n} pts","{r} · {n} pts"],
+  addCmd:["+ Nou comandant","+ Nuevo comandante","+ New commander"],
+  "m.calib":["Calibratge de sistemes","Calibración de sistemas","System calibration"],
+  "m.repair":["Taller de reparacions","Taller de reparaciones","Repair workshop"],
+  "m.to":["Rumb a {p}","Rumbo a {p}","Heading to {p}"],
+  "cap.calib":["CALIBRATGE · PREGUNTA {n}","CALIBRACIÓN · PREGUNTA {n}","CALIBRATION · QUESTION {n}"],
+  "cap.nav":["ORDINADOR DE NAVEGACIÓ · {n}/{t}","ORDENADOR DE NAVEGACIÓN · {n}/{t}","NAVIGATION COMPUTER · {n}/{t}"],
+  streak:["RATXA ×{n}","RACHA ×{n}","STREAK ×{n}"],
+  groupsQ:["{a} files de {b} caixes. Quantes caixes hi ha?","{a} filas de {b} cajas. ¿Cuántas cajas hay?","{a} rows of {b} crates. How many crates?"],
+  "tip.add":["Comença per les unitats. Toca les caselles petites de dalt per apuntar les que en portes.","Empieza por las unidades. Toca las casillas pequeñas de arriba para apuntar las que te llevas.","Start with the units. Tap the small boxes on top to write what you carry."],
+  "tip.comp":["Comença per les unitats. Les que en portes van a la casella petita, sobre la xifra de baix.","Empieza por las unidades. Las que te llevas van en la casilla pequeña, sobre la cifra de abajo.","Start with the units. What you carry goes in the small box, above the bottom digit."],
+  "tip.borrow":["Comença per les unitats. Si has de demanar, toca la casella de sobre i escriu el número nou.","Empieza por las unidades. Si tienes que pedir, toca la casilla de arriba y escribe el número nuevo.","Start with the units. If you need to borrow, tap the box on top and write the new number."],
+  "aria.carry":["En porto, {c}","Me llevo, {c}","Carry, {c}"],
+  "aria.newTop":["Número nou, {c}","Número nuevo, {c}","New number, {c}"],
+  "aria.res":["Resultat, {c}","Resultado, {c}","Answer, {c}"],
+  "ok.forgot":["Correcte! Però recorda apuntar les que en portes a les caselles petites.","¡Correcto! Pero recuerda apuntar las que te llevas en las casillas pequeñas.","Correct! But remember to write your carries in the small boxes."],
+  "ok.wrongC":["Correcte! Revisa les caselles petites: alguna no era bona.","¡Correcto! Revisa las casillas pequeñas: alguna no estaba bien.","Correct! Check the small boxes: one of them wasn't right."],
+  "bad.stack":["ALERTA · REVISEM LES COLUMNES","ALERTA · REVISEMOS LAS COLUMNAS","ALERT · LET'S CHECK THE COLUMNS"],
+  "bad.mental":["ALERTA · CÀLCUL INCORRECTE","ALERTA · CÁLCULO INCORRECTO","ALERT · WRONG CALCULATION"],
+  ansIs:["La resposta és ","La respuesta es ","The answer is "],
+  ansWas:["La resposta era ","La respuesta era ","The answer was "],
+  reask:["Aquest càlcul tornarà a sortir al final de la missió.","Este cálculo volverá a salir al final de la misión.","This one will come back at the end of the mission."],
+  cont:["Entesos, continuem","Entendido, sigamos","Got it, let's go on"],
+  "tag.calib":["INFORME DE CALIBRATGE","INFORME DE CALIBRACIÓN","CALIBRATION REPORT"],
+  "tag.repair":["INFORME DEL TALLER","INFORME DEL TALLER","WORKSHOP REPORT"],
+  "tag.mission":["INFORME DE MISSIÓ","INFORME DE MISIÓN","MISSION REPORT"],
+  "r.calibH":["Sistemes calibrats","Sistemas calibrados","Systems calibrated"],
+  "r.calibTop":["L'ordinador ha detectat que ja domines fins a {p}: {s}.","El ordenador ha detectado que ya dominas hasta {p}: {s}.","The computer found you already master everything up to {p}: {s}."],
+  "r.calibZero":["L'ordinador començarà pel principi, amb calma.","El ordenador empezará por el principio, con calma.","The computer will start from the beginning, nice and easy."],
+  "r.first":["El teu primer destí és {p}: {s}. Els planetes anteriors queden oberts per si vols repassar i guanyar estrelles.","Tu primer destino es {p}: {s}. Los planetas anteriores quedan abiertos por si quieres repasar y ganar estrellas.","Your first destination is {p}: {s}. Earlier planets stay open if you want to practise and earn stars."],
+  toBridge:["Anar al pont","Ir al puente","Go to the bridge"],
+  "r.repairH":["Reparacions acabades","Reparaciones terminadas","Repairs done"],
+  "r.arrived":["Has arribat a {p}!","¡Has llegado a {p}!","You reached {p}!"],
+  "r.almost":["Gairebé a {p}","Casi en {p}","Almost at {p}"],
+  "r.base":["Tornem a la base","Volvemos a la base","Back to base"],
+  "r.newSector":["Has obert el Sector Multiplicador! Ja pots visitar l'Estació Òrbita.","¡Has abierto el Sector Multiplicador! Ya puedes visitar la Estación Órbita.","You opened the Multiplication Sector! You can now visit Orbit Station."],
+  "r.conquered":["Planeta conquerit. El següent ja està obert al mapa.","Planeta conquistado. El siguiente ya está abierto en el mapa.","Planet conquered. The next one is open on the map."],
+  "r.need8":["Necessites 8 encerts de 10 per conquerir el planeta. Cada intent t'entrena: torna-hi!","Necesitas 8 aciertos de 10 para conquistar el planeta. Cada intento te entrena: ¡vuelve a probar!","You need 8 out of 10 to conquer the planet. Every try is training: go again!"],
+  "r.repaired1":["Has reparat 1 càlcul del tot. Els que encara fallen tornaran a sortir.","Has reparado 1 cálculo del todo. Los que todavía fallan volverán a salir.","You fully fixed 1 calculation. The ones still going wrong will come back."],
+  "r.repairedN":["Has reparat {n} càlculs del tot. Els que encara fallen tornaran a sortir.","Has reparado {n} cálculos del todo. Los que todavía fallan volverán a salir.","You fully fixed {n} calculations. The ones still going wrong will come back."],
+  "r.repairNone":["Els càlculs que encara fallen tornaran a sortir a les missions.","Los cálculos que todavía fallan volverán a salir en las misiones.","Calculations that still go wrong will come back in missions."],
+  points:["Punts","Puntos","Points"],
+  newAch:["Fites noves","Logros nuevos","New achievements"],
+  next:["Següent: {p}","Siguiente: {p}","Next: {p}"],
+  retry:["Tornar-ho a provar","Volver a intentarlo","Try again"],
+  replay:["Repetir per més estrelles","Repetir para más estrellas","Replay for more stars"],
+  "t.newAch":["NOVA FITA","NUEVO LOGRO","NEW ACHIEVEMENT"],
+  "t.rankUp":["ASCENS!","¡ASCENSO!","PROMOTED!"],
+  "t.nowRank":["Ara ets {r}","Ahora eres {r}","You are now {r}"],
+  "t.hangar":["HANGAR","HANGAR","HANGAR"],
+  "t.newPaint":["Nova pintura: {h}","Nueva pintura: {h}","New paint: {h}"],
+  "t.backup":["CÒPIA","COPIA","BACKUP"],
+  "t.restored":["Restaurada correctament","Restaurada correctamente","Restored"],
+  hangarP:["Cada ascens de rang desbloqueja una pintura nova per a la nau.","Cada ascenso de rango desbloquea una pintura nueva para la nave.","Each promotion unlocks a new paint job for your ship."],
+  hRank:["Rang: {r}","Rango: {r}","Rank: {r}"],
+  installed:["Instal·lada","Instalada","Installed"],
+  available:["Disponible","Disponible","Available"],
+  abortH:["Tornar al pont?","¿Volver al puente?","Back to the bridge?"],
+  abortP:["Els punts que ja has guanyat es queden, però la missió no comptarà per conquerir el planeta.","Los puntos que ya has ganado se quedan, pero la misión no contará para conquistar el planeta.","You keep the points you've earned, but this mission won't count towards conquering the planet."],
+  abortYes:["Sí, tornar","Sí, volver","Yes, go back"],
+  abortNo:["Continuar la missió","Seguir la misión","Keep flying"],
+  options:["Opcions","Opciones","Options"],
+  sound:["So i efectes","Sonido y efectos","Sound and effects"],
+  soundOn:["Activar so","Activar sonido","Turn sound on"],
+  soundOff:["Silenciar","Silenciar","Mute"],
+  noSave:["Aquest navegador no deixa desar el progrés. Obre la pàgina fora de la navegació privada.","Este navegador no deja guardar el progreso. Abre la página fuera de la navegación privada.","This browser won't save progress. Open the page outside private browsing."],
+  parentsRow:["Informe i ajustos per als pares","Informe y ajustes para los padres","Report and settings for parents"],
+  gateQ:["Per entrar, resol: {a} × {b}","Para entrar, resuelve: {a} × {b}","To enter, solve: {a} × {b}"],
+  enter:["Entrar","Entrar","Enter"],
+  gateBad:["Resultat incorrecte","Resultado incorrecto","Wrong answer"],
+  noProfiles:["Encara no hi ha cap comandant.","Todavía no hay ningún comandante.","No commanders yet."],
+  time14:["Temps (14 dies)","Tiempo (14 días)","Time (14 days)"],
+  activeDays1:["{n} dia amb activitat","{n} día con actividad","{n} active day"],
+  activeDaysN:["{n} dies amb activitat","{n} días con actividad","{n} active days"],
+  avgDay:["Mitjana per dia actiu","Media por día activo","Average per active day"],
+  activeOnly:["Només temps actiu","Solo tiempo activo","Active time only"],
+  accTotal:["Encerts totals","Aciertos totales","Overall accuracy"],
+  accOf:["{a} de {b} respostes","{a} de {b} respuestas","{a} of {b} answers"],
+  last7:["Últims 7 dies","Últimos 7 días","Last 7 days"],
+  vsPrev:["{arrow} {n} punts vs setmana anterior ({p}%)","{arrow} {n} puntos vs semana anterior ({p}%)","{arrow} {n} points vs previous week ({p}%)"],
+  noCompare:["Sense dades per comparar","Sin datos para comparar","Not enough data to compare"],
+  missions:["Missions","Misiones","Missions"],
+  bestStreakV:["Millor ratxa: {n}","Mejor racha: {n}","Best streak: {n}"],
+  pointsV:["{n} punts","{n} puntos","{n} points"],
+  chartH:["Temps d'ús per dia","Tiempo de uso por día","Time played per day"],
+  chartH14:["Temps d'ús per dia (últims 14 dies)","Tiempo de uso por día (últimos 14 días)","Time played per day (last 14 days)"],
+  chartAria:["Minuts de joc per dia, últims 14 dies","Minutos de juego por día, últimos 14 días","Minutes played per day, last 14 days"],
+  skillsH:["Encerts per tipus de càlcul","Aciertos por tipo de cálculo","Accuracy by type"],
+  thType:["Tipus","Tipo","Type"],
+  thAnswers:["Respostes","Respuestas","Answers"],
+  thAcc:["Encert","Acierto","Accuracy"],
+  thAvg:["Temps mitjà","Tiempo medio","Avg. time"],
+  "sk.mental+":["Càlcul mental · sumes","Cálculo mental · sumas","Mental · addition"],
+  "sk.mental-":["Càlcul mental · restes","Cálculo mental · restas","Mental · subtraction"],
+  "sk.stack+":["Apilat · sumes","En columna · sumas","Column · addition"],
+  "sk.stack-":["Apilat · restes","En columna · restas","Column · subtraction"],
+  "sk.mult":["Multiplicació","Multiplicación","Multiplication"],
+  stackH:["Càlcul apilat: on s'equivoca","Cálculo en columna: dónde se equivoca","Column sums: where mistakes happen"],
+  stackH2:["Càlcul apilat","Cálculo en columna","Column sums"],
+  stackNone:["Encara no ha fet cap càlcul apilat.","Todavía no ha hecho ningún cálculo en columna.","No column sums yet."],
+  stackDone:["Ha fet {n} càlculs apilats.","Ha hecho {n} cálculos en columna.","{n} column sums done."],
+  stackForgot:["S'ha oblidat d'apuntar les que en porta en {n} ({p}%), i n'ha apuntat alguna de malament en {w}.","Se ha olvidado de apuntar las llevadas en {n} ({p}%), y ha apuntado alguna mal en {w}.","Forgot to write the carries in {n} ({p}%), and wrote a wrong one in {w}."],
+  stackCols:["Columnes on en porta: {a}% bé. Columnes sense portar-ne: {b}% bé.","Columnas con llevada: {a}% bien. Columnas sin llevada: {b}% bien.","Columns with a carry: {a}% right. Columns without: {b}% right."],
+  stackHard:["Li costa sobretot recordar sumar o restar les que en porta.","Le cuesta sobre todo acordarse de sumar o restar las llevadas.","The main difficulty is remembering to use the carry."],
+  planetsH:["Planetes","Planetas","Planets"],
+  thPlanet:["Planeta","Planeta","Planet"],
+  thSkill:["Habilitat","Habilidad","Skill"],
+  thStars:["Estrelles","Estrellas","Stars"],
+  thBest:["Millor","Mejor","Best"],
+  noMissions:["Encara sense missions.","Todavía sin misiones.","No missions yet."],
+  weakH:["Càlculs que més li costen","Cálculos que más le cuestan","Hardest calculations"],
+  weakNone:["Cap error pendent ara mateix.","Ningún error pendiente ahora mismo.","No pending mistakes right now."],
+  settingsOf:["Ajustos de {n}","Ajustes de {n}","Settings for {n}"],
+  subMethod:["Mètode de les restes apilades","Método de las restas en columna","Column subtraction method"],
+  comp:["Compensació","Compensación","Compensation"],
+  borrow:["Préstec","Préstamo","Borrowing"],
+  compDesc:["Compensació: quan la xifra de dalt és més petita, se li sumen 10 i se'n porta 1 que se suma a la xifra de baix de la columna següent.","Compensación: cuando la cifra de arriba es más pequeña, se le suman 10 y se lleva 1 que se suma a la cifra de abajo de la columna siguiente.","Compensation: when the top digit is smaller, add 10 to it and carry 1 onto the bottom digit of the next column."],
+  borrowDesc:["Préstec: quan la xifra de dalt és més petita, es demana 1 a la columna del costat, que es ratlla i baixa una unitat.","Préstamo: cuando la cifra de arriba es más pequeña, se pide 1 a la columna de al lado, que se tacha y baja una unidad.","Borrowing: when the top digit is smaller, borrow 1 from the next column, which is crossed out and goes down by one."],
+  multOpen:["Sector Multiplicador obert","Sector Multiplicador abierto","Multiplication Sector open"],
+  multClosed:["Sector Multiplicador tancat (s'obre en conquerir Saturn)","Sector Multiplicador cerrado (se abre al conquistar Saturno)","Multiplication Sector locked (opens after Saturn)"],
+  openNow:["Obrir ara","Abrir ahora","Open now"],
+  recal:["Repetir el calibratge de nivell","Repetir la calibración de nivel","Redo the level calibration"],
+  calibrate:["Calibrar","Calibrar","Calibrate"],
+  delProf:["Esborrar el perfil de {n}","Borrar el perfil de {n}","Delete {n}'s profile"],
+  del:["Esborrar","Borrar","Delete"],
+  confirmDel:["Prem un altre cop per confirmar","Pulsa otra vez para confirmar","Press again to confirm"],
+  cantSave:["Atenció: aquest navegador no deixa desar el progrés.","Atención: este navegador no deja guardar el progreso.","Warning: this browser won't save progress."],
+  exportH:["Exportar","Exportar","Export"],
+  exReport:["Informe de {n}","Informe de {n}","{n}'s report"],
+  exReportD:["Pàgina que es pot obrir, imprimir o enviar per correu","Página que se puede abrir, imprimir o enviar por correo","A page you can open, print or email"],
+  exReportB:["Informe (.html)","Informe (.html)","Report (.html)"],
+  exData:["Dades diàries de {n}","Datos diarios de {n}","{n}'s daily data"],
+  exDataD:["Temps i encerts per dia, per obrir amb Excel","Tiempo y aciertos por día, para abrir con Excel","Time and accuracy per day, opens in Excel"],
+  exDataB:["Dades (.csv)","Datos (.csv)","Data (.csv)"],
+  exBk:["Còpia de seguretat","Copia de seguridad","Backup"],
+  exBkD:["Tots els comandants, per restaurar-los en aquesta o una altra tauleta","Todos los comandantes, para restaurarlos en esta u otra tableta","All commanders, to restore on this or another tablet"],
+  exBkB:["Còpia (.json)","Copia (.json)","Backup (.json)"],
+  restore:["Restaurar una còpia","Restaurar una copia","Restore a backup"],
+  restoreD:["Afegeix o actualitza els comandants des d'un fitxer .json","Añade o actualiza los comandantes desde un archivo .json","Add or update commanders from a .json file"],
+  pickFile:["Triar fitxer","Elegir archivo","Choose file"],
+  readFail:["No s'ha pogut llegir el fitxer.","No se ha podido leer el archivo.","Couldn't read the file."],
+  saved:["Fitxer desat: {f}","Archivo guardado: {f}","File saved: {f}"],
+  dlCancel:["Descàrrega cancel·lada.","Descarga cancelada.","Download cancelled."],
+  dlBusy:["Ja hi ha una descàrrega pendent de confirmar. Espera uns segons i torna-ho a provar.","Ya hay una descarga pendiente de confirmar. Espera unos segundos y vuelve a probar.","A download is already waiting for confirmation. Wait a few seconds and try again."],
+  dlFail:["No s'ha pogut desar el fitxer.","No se ha podido guardar el archivo.","Couldn't save the file."],
+  clipOk:["Aquí no es poden descarregar fitxers: el contingut s'ha copiat al porta-retalls. Enganxa'l en un document de text i desa'l com a {f}.","Aquí no se pueden descargar archivos: el contenido se ha copiado al portapapeles. Pégalo en un documento de texto y guárdalo como {f}.","Files can't be downloaded here: the content was copied to the clipboard. Paste it into a text file and save it as {f}."],
+  clipFail:["En aquesta vista no es poden descarregar fitxers. Obre la pàgina al navegador de la tauleta.","En esta vista no se pueden descargar archivos. Abre la página en el navegador de la tableta.","Files can't be downloaded in this view. Open the page in the tablet's browser."],
+  badBackup:["El fitxer no és una còpia de seguretat vàlida d'aquesta app.","El archivo no es una copia de seguridad válida de esta app.","This file isn't a valid backup from this app."],
+  restoreH:["Restaurar còpia","Restaurar copia","Restore backup"],
+  restoreHas:["La còpia té {n}: {list}.","La copia tiene {n}: {list}.","The backup has {n}: {list}."],
+  cmdCount1:["1 comandant","1 comandante","1 commander"],
+  cmdCountN:["{n} comandants","{n} comandantes","{n} commanders"],
+  restoreAdd:["{n} es crearan de nou. ","{n} se crearán nuevos. ","{n} will be added. "],
+  restoreUpd:["{n} ja existeixen en aquesta tauleta i se substituiran pel progrés de la còpia.","{n} ya existen en esta tableta y se sustituirán por el progreso de la copia.","{n} already exist on this tablet and will be replaced with the backup's progress."],
+  restoreBtn:["Restaurar","Restaurar","Restore"],
+  cancel:["Cancel·lar","Cancelar","Cancel"],
+  "rep.title":["Informe de progrés · {n}","Informe de progreso · {n}","Progress report · {n}"],
+  "rep.sub":["{app} · nau {s} · generat el {d} a les {t}","{app} · nave {s} · generado el {d} a las {t}","{app} · ship {s} · generated on {d} at {t}"],
+  "rep.foot":["Mètode de restes: {m}. El temps compta només l'ús actiu (es para després d'un minut sense activitat).","Método de restas: {m}. El tiempo cuenta solo el uso activo (se para tras un minuto sin actividad).","Subtraction method: {m}. Time counts active use only (it stops after one minute of inactivity)."],
+  "csv.date":["Data","Fecha","Date"],
+  "csv.min":["Minuts actius","Minutos activos","Active minutes"],
+  "csv.wrong":["Errors","Errores","Wrong"],
+  "csv.pct":["% encert","% acierto","% correct"],
+  "csv.type":["Tipus de càlcul","Tipo de cálculo","Type"],
+  "csv.avg":["Temps mitjà (s)","Tiempo medio (s)","Avg. time (s)"],
+  "fn.report":["informe","informe","report"],
+  "fn.data":["dades","datos","data"],
+  "fn.backup":["missio-calcul-copia","mision-calculo-copia","math-mission-backup"],
+  tableOf:["Taula del {n}","Tabla del {n}","{n} times table"],
+  /* mental hints */
+  "h.pairs":["Suma'ls de dos en dos:","Súmalos de dos en dos:","Add them two at a time:"],
+  "h.sub":["Fes la resta: {e}","Haz la resta: {e}","Subtract: {e}"],
+  "h.add":["Fes la suma: {e}","Haz la suma: {e}","Add: {e}"],
+  "h.left":["Et queden {e}","Te quedan {e}","Left over: {e}"],
+  "h.countOn":["Comença pel {a} i compta {b} endavant: {r}","Empieza por el {a} y cuenta {b} hacia delante: {r}","Start at {a} and count on {b}: {r}"],
+  "h.join":["Junta-ho: {e}","Júntalo: {e}","Put it together: {e}"],
+  "h.down10":["Baixa fins a 10: {e}","Baja hasta 10: {e}","Go down to 10: {e}"],
+  "h.still":["Encara has de treure {n}: {e}","Todavía tienes que quitar {n}: {e}","Still {n} to take away: {e}"],
+  "h.countBack":["Compta enrere {b} des de {a}: {r}","Cuenta hacia atrás {b} desde {a}: {r}","Count back {b} from {a}: {r}"],
+  "h.take":["Treu les {p}: {e}","Quita las {p}: {e}","Take away the {p}: {e}"],
+  "h.x10":["Multiplicar per 10 és afegir un zero: {o} → {r}","Multiplicar por 10 es añadir un cero: {o} → {r}","Times 10 means adding a zero: {o} → {r}"],
+  "h.x1":["Qualsevol número per 1 dona el mateix número: {r}","Cualquier número por 1 da el mismo número: {r}","Any number times 1 stays the same: {r}"],
+  "h.groups":["{a} × {b} vol dir {a} grups de {b}","{a} × {b} quiere decir {a} grupos de {b}","{a} × {b} means {a} groups of {b}"],
+  "h.swap":["{a} × {b} és igual que {b} × {a}","{a} × {b} es igual que {b} × {a}","{a} × {b} is the same as {b} × {a}"],
+  /* stacked steps */
+  "s.carryIn":[" + {n} que en portaves"," + {n} que llevabas"," + {n} carried"],
+  "s.write":[" → escrius {d} i en portes {n}"," → escribes {d} y te llevas {n}"," → write {d} and carry {n}"],
+  "s.bring":["{c}: baixes el {n} que en portaves","{c}: bajas el {n} que llevabas","{c}: bring down the carried {n}"],
+  "s.compPre":["{bd} + 1 que en portaves = {bb}. ","{bd} + 1 que llevabas = {bb}. ","{bd} + 1 carried = {bb}. "],
+  "s.compNo":["{c}: {pre}{t} − {bb} no es pot: {t10} − {bb} = {r}, i en portes 1","{c}: {pre}{t} − {bb} no se puede: {t10} − {bb} = {r}, y te llevas 1","{c}: {pre}{t} − {bb} won't go: {t10} − {bb} = {r}, carry 1"],
+  "s.compOk":["{c}: {pre}{t} − {bb} = {r}","{c}: {pre}{t} − {bb} = {r}","{c}: {pre}{t} − {bb} = {r}"],
+  "s.bor":["{c}: {v} és més petit que {b}. {how} {v10} − {b} = {r}","{c}: {v} es más pequeño que {b}. {how} {v10} − {b} = {r}","{c}: {v} is smaller than {b}. {how} {v10} − {b} = {r}"],
+  "s.borNext":["Demanes 1 a la columna del costat.","Pides 1 a la columna de al lado.","Borrow 1 from the next column."],
+  "s.borZeros":["Hi ha zeros al costat: demanes 1 més enllà i els zeros es tornen 9.","Hay ceros al lado: pides 1 más allá y los ceros se convierten en 9.","There are zeros next to it: borrow from further along and the zeros become 9."],
+  "s.plain":["{c}: {a} − {b} = {r}","{c}: {a} − {b} = {r}","{c}: {a} − {b} = {r}"]
+};
+const COLN={ca:['Unitats','Desenes','Centenes','Milers','Desenes de miler'],es:['Unidades','Decenas','Centenas','Unidades de millar','Decenas de millar'],en:['Units','Tens','Hundreds','Thousands','Ten thousands']};
+const OKW={ca:['CORRECTE!','MOTORS EN MARXA!','RUMB FIXAT!','PERFECTE!','IMPULS!'],es:['¡CORRECTO!','¡MOTORES EN MARCHA!','¡RUMBO FIJADO!','¡PERFECTO!','¡IMPULSO!'],en:['CORRECT!','ENGINES ON!','COURSE SET!','PERFECT!','THRUST!']};
+
+let L='ca',LI=0;
+function t(k,v){const e=D[k];let s=e?e[LI]:k;if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s}
+const tn=a=>Array.isArray(a)?a[LI]:a; // pick language from [ca,es,en]
+const coln=i=>COLN[L][i];
+const T3=n=>LANGS.map((l,i)=>D.tableOf[i].replace('{n}',n));
+function applyStatic(){
+  document.documentElement.lang=L;
+  document.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=t(e.dataset.i18n)});
+  document.querySelectorAll('[data-i18n-ph]').forEach(e=>{e.placeholder=t(e.dataset.i18nPh)});
+  document.querySelectorAll('[data-i18n-aria]').forEach(e=>{e.setAttribute('aria-label',t(e.dataset.i18nAria))});
+  document.querySelectorAll('.lang-slot').forEach(s=>{s.innerHTML='';s.append(langSeg(()=>{}))});
+}
+function langSeg(after){
+  const seg=el('div','seg');seg.setAttribute('role','group');seg.setAttribute('aria-label',t('lang'));
+  [['ca','CA'],['es','ES'],['en','EN']].forEach(([v,lab])=>{const b=el('button',L===v?'on':'',lab);b.setAttribute('aria-pressed',L===v);b.setAttribute('lang',v);
+    b.onclick=()=>{if(L===v)return;setLang(v);save();refreshScreen();after&&after()};seg.append(b)});
+  return seg;
+}
+function setLang(v){L=LANGS.includes(v)?v:'ca';LI=LANGS.indexOf(L);G.lang=L;applyStatic()}
+function refreshScreen(){
+  if(!$('#scr-profiles').hidden)renderProfiles();
+  else if(!$('#scr-bridge').hidden&&S)renderBridge();
+}
+
+/* ================= Problems ================= */
+const P=(a,op,b,h=2)=>({a,op,b,h});
+const isStack=p=>p.kind==='stack';
+function calc(p){
+  if(isStack(p))return p.op==='+'?p.nums.reduce((x,y)=>x+y,0):p.nums[0]-p.nums[1];
+  return p.op==='+'?p.a+p.b+(p.c||0):p.op==='-'?p.a-p.b:p.a*p.b;
+}
+const answer=p=>isStack(p)||p.h===2?calc(p):p.h===0?p.a:p.b;
+const keyOf=p=>isStack(p)?`S${p.op}${p.nums.join(',')}`:`${p.a}${p.op}${p.b}${p.c?'+'+p.c:''}#${p.h}`;
+const opChar=o=>o==='-'?'−':o;
+const nDig=nd=>rnd(10**(nd-1),10**nd-1);
+
+const g={
+  add20(){const a=rnd(2,14);return P(a,'+',rnd(Math.max(1,5-a),20-a))},
+  sub20(){const a=rnd(6,20);return P(a,'-',rnd(2,a-1))},
+  add100n(){const t1=rnd(1,8),t2=rnd(1,9-t1),u1=rnd(0,9),u2=rnd(0,9-u1);return P(t1*10+u1,'+',t2*10+u2)},
+  sub100n(){const t1=rnd(2,9),u1=rnd(1,9),t2=rnd(1,t1-1),u2=rnd(0,u1);return P(t1*10+u1,'-',t2*10+u2)},
+  add100c(){const u1=rnd(2,9),u2=rnd(10-u1,9),t1=rnd(1,7),t2=rnd(0,8-t1);return P(t1*10+u1,'+',t2*10+u2)},
+  sub100c(){const u1=rnd(0,8),u2=rnd(u1+1,9),t1=rnd(2,9),t2=rnd(0,t1-1);return P(t1*10+u1,'-',t2*10+u2)},
+  mix100(){return pick([g.add100n,g.sub100n,g.add100c,g.add100c,g.sub100c,g.sub100c])()},
+  add1000(){const a=rnd(100,800);return P(a,'+',rnd(20,Math.min(899,999-a)))},
+  sub1000(){const a=rnd(200,999);return P(a,'-',rnd(20,a-30))},
+  mix1000(){const r=Math.random();if(r<.35)return g.add1000();if(r<.7)return g.sub1000();const p=pick([g.add100c,g.sub100c,g.add100n,g.add1000])();p.h=rnd(0,1);return p},
+  round4(){const a=rnd(11,89);if(Math.random()<.5)return P(a*100,'+',rnd(10,99-a)*100);return P(a*100,'-',rnd(10,a-1)*100)},
+  zeroMental(){return pick([()=>P(100,'-',rnd(11,89)),()=>P(1000,'-',rnd(1,9)*100),()=>P(1000,'-',rnd(11,99)*10),()=>P(rnd(2,9)*100,'-',rnd(11,99))])()},
+  three(){const p=P(rnd(2,9)*5,'+',rnd(2,9)*5);p.c=rnd(3,20);return p},
+  mixBig(){return pick([g.round4,g.zeroMental,g.three,g.mix1000])()},
+  groups(){const p=P(rnd(2,5),'×',rnd(2,5));p.groups=true;return p},
+  table(n){return()=>{const k=rnd(1,10);return Math.random()<.5?P(n,'×',k):P(k,'×',n)}},
+  tmix(){return g.table(rnd(2,10))()}
+};
+const S_=(op,nums)=>({kind:'stack',op,nums});
+function hasCarry(nums){let c=0;const Lm=Math.max(...nums.map(len));for(let i=0;i<Lm;i++){const s=nums.reduce((x,y)=>x+dig(y,i),0)+c;c=Math.floor(s/10);if(c)return true}return false}
+function hasBorrow(a,b){let br=0;for(let i=0;i<len(a);i++){const bb=dig(b,i)+br;br=dig(a,i)<bb?1:0;if(br)return true}return false}
+function zeroBorrow(a,b){let br=0;for(let i=0;i<len(a);i++){if(br&&dig(a,i)===0)return true;const bb=dig(b,i)+br;br=dig(a,i)<bb?1:0}return false}
+const sg={
+  addN(nd){return()=>{let a=0,b=0;for(let i=0;i<nd;i++){const d1=i===nd-1?rnd(1,8):rnd(0,8);const d2=i===nd-1?rnd(1,9-d1):rnd(0,9-d1);a+=d1*10**i;b+=d2*10**i}return S_('+',[a,b])}},
+  subN(nd){return()=>{let a=0,b=0;for(let i=0;i<nd;i++){const d1=i===nd-1?rnd(2,9):rnd(0,9);const d2=i===nd-1?rnd(1,d1-1):rnd(0,d1);a+=d1*10**i;b+=d2*10**i}return S_('-',[a,b])}},
+  addC(nd){return()=>{for(let k=0;k<200;k++){const a=nDig(nd),b=Math.random()<.3&&nd>2?nDig(nd-1):nDig(nd);if(hasCarry([a,b])&&a+b<10**(nd+1))return S_('+',[a,b])}return S_('+',[58,67])}},
+  subC(nd){return()=>{for(let k=0;k<200;k++){const a=nDig(nd),b=Math.random()<.3&&nd>2?nDig(nd-1):rnd(10**(nd-1),a-1);if(b<a&&b>=10&&hasBorrow(a,b))return S_('-',[a,b])}return S_('-',[82,47])}},
+  zeros(){for(let k=0;k<300;k++){const nd=rnd(3,4);let a=rnd(2,9)*10**(nd-1);for(let i=0;i<nd-1;i++)if(Math.random()<.35)a+=rnd(1,9)*10**i;const b=rnd(Math.max(11,Math.floor(a/6)),a-1);if(zeroBorrow(a,b)&&len(b)>=nd-1)return S_('-',[a,b])}return S_('-',[5002,1768])},
+  three(nd){return()=>{const nums=[nDig(nd),nDig(nd),Math.random()<.5?nDig(nd):nDig(Math.max(2,nd-1))];return S_('+',nums)}},
+  mix(...gs){return()=>pick(gs)()}
+};
+
+/* ================= Planets ================= */
+const SECTOR_A=[
+  {id:'t0',name:['Lluna','Luna','Moon'],skill:['Sumes fins a 20','Sumas hasta 20','Addition up to 20'],gen:g.add20,speed:5,pl:['#f2f2f2','#a8adb7','#4f545e']},
+  {id:'t1',name:['Mart','Marte','Mars'],skill:['Restes fins a 20','Restas hasta 20','Subtraction up to 20'],gen:g.sub20,speed:5,pl:['#ffb08a','#d2522a','#5c1f0e']},
+  {id:'t2',name:['Fobos','Fobos','Phobos'],skill:['Sumes fins a 100 sense portar-ne','Sumas hasta 100 sin llevadas','Addition to 100, no carrying'],gen:g.add100n,stack:sg.addN(2),nStack:4,speed:8,sspeed:30,pl:['#d6b89a','#8c6a4f','#3b2b1e']},
+  {id:'t3',name:['Ceres','Ceres','Ceres'],skill:['Restes fins a 100 sense portar-ne','Restas hasta 100 sin llevadas','Subtraction to 100, no borrowing'],gen:g.sub100n,stack:sg.subN(2),nStack:4,speed:8,sspeed:30,pl:['#c7d0e0','#7a86a0','#323a4d']},
+  {id:'t4',name:['Júpiter','Júpiter','Jupiter'],skill:['Sumes portant-ne fins a 100','Sumas con llevadas hasta 100','Addition to 100 with carrying'],gen:g.add100c,stack:sg.addC(2),nStack:4,speed:12,sspeed:35,pl:['#ffe2b8','#d39a5c','#6b3f1c'],bands:true},
+  {id:'t5',name:['Europa','Europa','Europa'],skill:['Restes portant-ne fins a 100','Restas con llevadas hasta 100','Subtraction to 100 with borrowing'],gen:g.sub100c,stack:sg.subC(2),nStack:4,speed:12,sspeed:35,pl:['#fffaf0','#d9c9a8','#7a6a50']},
+  {id:'t6',name:['Saturn','Saturno','Saturn'],skill:['Sumes i restes barrejades fins a 100','Sumas y restas mezcladas hasta 100','Mixed addition and subtraction to 100'],gen:g.mix100,stack:sg.mix(sg.addC(2),sg.subC(2)),nStack:4,speed:12,sspeed:35,pl:['#fff0c2','#e0b860','#7a5a1c'],ring:true},
+  {id:'t7',name:['Tità','Titán','Titan'],skill:['Sumes fins a 1000','Sumas hasta 1000','Addition up to 1000'],gen:g.add1000,stack:sg.addC(3),nStack:6,speed:18,sspeed:45,pl:['#ffd59a','#e08a2c','#6e3a0c']},
+  {id:'t8',name:['Urà','Urano','Uranus'],skill:['Restes fins a 1000','Restas hasta 1000','Subtraction up to 1000'],gen:g.sub1000,stack:sg.subC(3),nStack:6,speed:18,sspeed:45,pl:['#d8fbff','#6fd6e0','#1d5d66'],ring:true},
+  {id:'t9',name:['Neptú','Neptuno','Neptune'],skill:['Barreja fins a 1000 i número amagat','Mezcla hasta 1000 y número escondido','Mixed to 1000 and missing numbers'],gen:g.mix1000,stack:sg.mix(sg.addC(3),sg.subC(3)),nStack:6,speed:20,sspeed:45,pl:['#a8c4ff','#3b62d9','#122660']},
+  {id:'t10',name:['Plutó','Plutón','Pluto'],skill:['Sumes i restes de 4 xifres','Sumas y restas de 4 cifras','4-digit addition and subtraction'],gen:g.round4,stack:sg.mix(sg.addC(4),sg.subC(4)),nStack:7,speed:15,sspeed:60,pl:['#f3e2d0','#b89a80','#4a3a30']},
+  {id:'t11',name:['Haumea','Haumea','Haumea'],skill:['Restes amb zeros (5002 − 1768)','Restas con ceros (5002 − 1768)','Subtraction with zeros (5002 − 1768)'],gen:g.zeroMental,stack:sg.zeros,nStack:7,speed:15,sspeed:60,pl:['#f6f6ff','#c4c4e0','#55557a']},
+  {id:'t12',name:['Eris','Eris','Eris'],skill:['Sumes de tres nombres','Sumas de tres números','Adding three numbers'],gen:g.three,stack:sg.mix(sg.three(2),sg.three(3),sg.three(3),sg.three(4)),nStack:7,speed:15,sspeed:60,pl:['#e0f0ff','#90a8c8','#34445e']},
+  {id:'t13',name:['Kuiper','Kuiper','Kuiper'],skill:['Barreja de tot el cinturó','Mezcla de todo el cinturón','Everything in the belt, mixed'],gen:g.mixBig,stack:sg.mix(sg.addC(4),sg.subC(4),sg.zeros,sg.three(3)),nStack:7,speed:18,sspeed:60,pl:['#d8e8ff','#6f86b0','#1c2640'],ring:true}
+];
+const CAL_MAX=9;
+const SECTOR_B=[
+  {id:'m0',name:['Estació Òrbita','Estación Órbita','Orbit Station'],skill:['Què és multiplicar? Grups de caixes','¿Qué es multiplicar? Grupos de cajas','What is multiplying? Groups of crates'],gen:g.groups,speed:10,pl:['#c8fff4','#3cc7b0','#0d4a40']},
+  {id:'m1',name:['Pròxima','Próxima','Proxima'],skill:T3(2),gen:g.table(2),speed:6,pl:['#ffb3a8','#e04a3a','#5a120c']},
+  {id:'m2',name:['Kepler','Kepler','Kepler'],skill:T3(10),gen:g.table(10),speed:6,pl:['#c9ffb8','#5cc94a','#1a4a12']},
+  {id:'m3',name:['Trappist','Trappist','Trappist'],skill:T3(5),gen:g.table(5),speed:6,pl:['#e6c8ff','#9a5ce0','#35155c']},
+  {id:'m4',name:['Vega','Vega','Vega'],skill:T3(3),gen:g.table(3),speed:7,pl:['#d6f0ff','#6cb0e8','#1a4166']},
+  {id:'m5',name:['Sírius','Sirio','Sirius'],skill:T3(4),gen:g.table(4),speed:7,pl:['#ffffff','#bcd2ff','#4a5f99']},
+  {id:'m6',name:['Rigel','Rigel','Rigel'],skill:T3(6),gen:g.table(6),speed:8,pl:['#b8d8ff','#3a7cff','#0d2a6b']},
+  {id:'m7',name:['Altair','Altair','Altair'],skill:T3(7),gen:g.table(7),speed:8,pl:['#fff5b8','#e8c43a','#6b5210']},
+  {id:'m8',name:['Deneb','Deneb','Deneb'],skill:T3(8),gen:g.table(8),speed:8,pl:['#ffd0ea','#e05aa6','#5c1440']},
+  {id:'m9',name:['Polaris','Polaris','Polaris'],skill:T3(9),gen:g.table(9),speed:8,pl:['#eef6ff','#9fb6d9','#3a4a66']},
+  {id:'m10',name:['Andròmeda','Andrómeda','Andromeda'],skill:['Totes les taules barrejades','Todas las tablas mezcladas','All times tables mixed'],gen:g.tmix,speed:8,pl:['#f0d0ff','#8a4ae0','#200a40'],ring:true}
+];
+const ALL=[...SECTOR_A,...SECTOR_B];
+const TIER=Object.fromEntries(ALL.map(x=>[x.id,x]));
+const pn=x=>tn(x.name),ps=x=>tn(x.skill);
+const lc=s=>L==='en'?s.charAt(0).toLowerCase()+s.slice(1):s.toLowerCase();
+
+/* ================= Mental hints ================= */
+const PLACE_IDX={1000:3,100:2,10:1,1:0};
+const digitPart=(n,place)=>Math.floor(n/place)%10*place;
+function hintFor(p){
+  const a=p.a,b=p.b,r=calc(p),lines=[];let dots=null;
+  if(p.c){lines.push(t('h.pairs'),`${a} + ${b} = ${a+b}`,`${a+b} + ${p.c} = ${r}`);return{lines,dots}}
+  if(p.h!==2){
+    if(p.op==='+'){if(p.h===0)lines.push(`? + ${b} = ${r}`,t('h.sub',{e:`${r} − ${b} = ${a}`}));else lines.push(`${a} + ? = ${r}`,t('h.sub',{e:`${r} − ${a} = ${b}`}))}
+    else{if(p.h===0)lines.push(`? − ${b} = ${r}`,t('h.add',{e:`${r} + ${b} = ${a}`}));else lines.push(`${a} − ? = ${r}`,t('h.sub',{e:`${a} − ${r} = ${b}`}))}
+    return{lines,dots};
+  }
+  if(p.op==='+'){
+    const mx=Math.max(a,b),mn=Math.min(a,b);
+    if(r<=20){
+      if(mx<10&&r>10){const need=10-mx;lines.push(`${mx} + ${need} = 10`,t('h.left',{e:`${mn} − ${need} = ${mn-need}`}),`10 + ${mn-need} = ${r}`)}
+      else if(mx>=10){lines.push(`${mx} = 10 + ${mx-10}`,`${mx-10} + ${mn} = ${mx-10+mn}`,`10 + ${mx-10+mn} = ${r}`)}
+      else lines.push(t('h.countOn',{a:mx,b:mn,r}));
+    }else{
+      const parts=[];
+      for(const pl of [1000,100,10,1]){const x=digitPart(a,pl),y=digitPart(b,pl);if(x||y){lines.push(`${coln(PLACE_IDX[pl])}: ${x} + ${y} = ${x+y}`);parts.push(x+y)}}
+      lines.push(t('h.join',{e:`${parts.join(' + ')} = ${r}`}));
+    }
+  }else if(p.op==='-'){
+    if(a<=20){
+      if(a>10&&b>a-10){const s=a-10,rest=b-s;lines.push(t('h.down10',{e:`${a} − ${s} = 10`}),t('h.still',{n:rest,e:`10 − ${rest} = ${r}`}))}
+      else if(a>10){lines.push(`${a} = 10 + ${a-10}`,`${a-10} − ${b} = ${a-10-b}`,`10 + ${a-10-b} = ${r}`)}
+      else lines.push(t('h.countBack',{a,b,r}));
+    }else{
+      let cur=a;
+      for(const pl of [1000,100,10,1]){const d=digitPart(b,pl);if(d){lines.push(t('h.take',{p:coln(PLACE_IDX[pl]).toLowerCase(),e:`${cur} − ${d} = ${cur-d}`}));cur-=d}}
+    }
+  }else{
+    dots={rows:a,cols:b};
+    if(a===10||b===10){const o=a===10?b:a;lines.push(t('h.x10',{o,r}))}
+    else if(a===1||b===1){lines.push(t('h.x1',{r}))}
+    else if(a<=5){lines.push(t('h.groups',{a,b}),`${Array(a).fill(b).join(' + ')} = ${r}`)}
+    else if(b<=5){lines.push(t('h.swap',{a,b}),`${Array(b).fill(a).join(' + ')} = ${r}`)}
+    else{lines.push(`${a} × ${b} = 5 × ${b} + ${a-5} × ${b}`,`${5*b} + ${(a-5)*b} = ${r}`)}
+  }
+  return{lines,dots};
+}
+
+/* ================= Stacked model ================= */
+function stackModel(p,method){
+  const m={op:p.op,nums:p.nums,carry:[],res:[],steps:[],carryIn:[]};
+  if(p.op==='+'){
+    const Lm=Math.max(...p.nums.map(len));m.n=Lm+1;m.method='add';
+    const r=calc(p),rl=len(r);let c=0;
+    for(let i=0;i<m.n;i++){
+      const ds=p.nums.filter(x=>len(x)>i).map(x=>dig(x,i));const s=ds.reduce((x,y)=>x+y,0)+c;
+      m.carryIn[i]=c>0;m.res[i]=i<rl?dig(r,i):null;
+      if(ds.length)m.steps.push(`${coln(i)}: ${ds.join(' + ')}${c?t('s.carryIn',{n:c}):''} = ${s}`+(s>=10&&i<m.n-1?t('s.write',{d:s%10,n:Math.floor(s/10)}):''));
+      else if(c)m.steps.push(t('s.bring',{c:coln(i),n:c}));
+      c=Math.floor(s/10);
+      if(i+1>=1&&i+1<=m.n-2)m.carry[i+1]=c?String(c):'';
+    }
+  }else{
+    const[a,b]=p.nums;m.n=len(a);const r=a-b,rl=len(r);
+    if(method==='borrow'){
+      m.method='borrow';const cur=[];for(let i=0;i<m.n;i++)cur[i]=dig(a,i);const changed={};
+      for(let i=0;i<m.n;i++){
+        const bi=len(b)>i?dig(b,i):0;
+        if(cur[i]<bi){
+          let j=i+1;while(cur[j]===0)j++;const zeros=j>i+1;
+          cur[j]-=1;changed[j]=cur[j];for(let k=j-1;k>i;k--){cur[k]=9;changed[k]=9}
+          const v=cur[i]+10;m.carryIn[i]=true;
+          m.steps.push(t('s.bor',{c:coln(i),v:cur[i],b:bi,how:t(zeros?'s.borZeros':'s.borNext'),v10:v,r:v-bi}));
+          cur[i]=v;
+        }else{if(changed[i]!==undefined)m.carryIn[i]=true;if(i<rl||bi)m.steps.push(t('s.plain',{c:coln(i),a:cur[i],b:bi,r:cur[i]-bi}))}
+        m.res[i]=i<rl?dig(r,i):null;
+      }
+      for(let i=1;i<m.n;i++)m.carry[i]=changed[i]!==undefined?String(changed[i]):'';
+    }else{
+      m.method='comp';let br=0;
+      for(let i=0;i<m.n;i++){
+        const tt=dig(a,i),bd=len(b)>i?dig(b,i):0,bb=bd+br;m.carryIn[i]=br>0;
+        const pre=br?t('s.compPre',{bd,bb}):'';let nb=0;
+        if(tt<bb){nb=1;m.steps.push(t('s.compNo',{c:coln(i),pre,t:tt,bb,t10:tt+10,r:tt+10-bb}))}
+        else if(i<rl||bb)m.steps.push(t('s.compOk',{c:coln(i),pre,t:tt,bb,r:tt-bb}));
+        m.res[i]=i<rl?dig(r,i):null;
+        if(i+1<m.n)m.carry[i+1]=nb?'1':'';
+        br=nb;
+      }
+    }
+  }
+  return m;
+}
+function buildStack(model,opt){
+  const n=model.n,box=el('div','stack'+(opt.mini?' mini':''));box.style.setProperty('--n',n);
+  const row=(sign,cells)=>{const r=el('div','srow');r.append(el('span','ssign',sign||''));cells.forEach(c=>r.append(c));return r};
+  const isSel=(ty,i)=>opt.sel&&opt.sel.t===ty&&opt.sel.i===i;
+  const carryRow=()=>{const cells=[];for(let j=0;j<n;j++){const i=n-1-j;
+      if(model.carry[i]===undefined){cells.push(el('span'));continue}
+      const v=opt.vals.c[i]||'';const c=el(opt.interactive?'button':'span','sc',v);c.dataset.t='c';c.dataset.i=i;
+      if(opt.interactive)c.setAttribute('aria-label',t(model.method==='borrow'?'aria.newTop':'aria.carry',{c:coln(i)}));
+      if(isSel('c',i))c.classList.add('sel');const mk=opt.marks&&opt.marks.c[i];if(mk)c.classList.add(mk);cells.push(c)}
+    return row('',cells)};
+  const numRow=(num,sign,strike)=>{const cells=[];const s=String(num);for(let j=0;j<n;j++){const i=n-1-j;const d=i<s.length?s[s.length-1-i]:'';const c=el('span','sd',d);if(strike&&d&&i>0&&opt.vals.c[i])c.classList.add('struck');cells.push(c)}return row(sign,cells)};
+  const resRow=()=>{const cells=[];for(let j=0;j<n;j++){const i=n-1-j;const v=opt.vals.r[i]||'';const c=el(opt.interactive?'button':'span','sr',v);c.dataset.t='r';c.dataset.i=i;
+      if(opt.interactive)c.setAttribute('aria-label',t('aria.res',{c:coln(i)}));
+      if(isSel('r',i))c.classList.add('sel');const mk=opt.marks&&opt.marks.r[i];if(mk)c.classList.add(mk);cells.push(c)}return row('',cells)};
+  const line=()=>{const r=el('div','srow');r.append(el('span'));const l=el('div','sline');l.style.gridColumn=`2 / span ${n}`;r.append(l);return r};
+  const opS=opChar(model.op);
+  if(model.method==='add'){box.append(carryRow());model.nums.forEach((x,k)=>box.append(numRow(x,k===model.nums.length-1?opS:'')))}
+  else if(model.method==='comp'){box.append(numRow(model.nums[0],''),carryRow(),numRow(model.nums[1],opS))}
+  else{box.append(carryRow(),numRow(model.nums[0],'',true),numRow(model.nums[1],opS))}
+  box.append(line(),resRow());return box;
+}
+function gradeStack(model,st){
+  const marks={r:{},c:{}};let allOK=true,forgot=0,wrongC=0;const cols=[];
+  for(let i=0;i<model.n;i++){
+    const e=model.res[i],v=st.r[i]||'';
+    const ok=e==null?(v===''||v==='0'):v===String(e);
+    if(!(e==null&&v===''))marks.r[i]=ok?'ok':'bad';if(!ok)allOK=false;
+    if(e!=null)cols.push({carry:!!model.carryIn[i],ok});
+    const ce=model.carry[i];if(ce===undefined)continue;const cv=st.c[i]||'';
+    if(ce===''){if(cv!==''&&!(cv==='0'&&model.method!=='borrow')){wrongC++;marks.c[i]='warn'}}
+    else if(cv===''){forgot++;marks.c[i]='warn'}
+    else if(cv!==ce){wrongC++;marks.c[i]='warn'}else marks.c[i]='ok';
+  }
+  return{allOK,forgot,wrongC,marks,cols};
+}
+
+/* ================= State (profiles) ================= */
+const KEY2='missio-calcul-v2',KEY1='missio-calcul-v1';
+const blankProfile=()=>({id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:'',ship:'',xp:0,hull:0,stars:{},best:{},calTop:-1,calibrated:false,multForced:false,subMethod:'comp',
+  stats:{correct:0,wrong:0,missions:0,bestStreak:0,repaired:0,stackOK:0},ach:{},weak:{},days:[],log:{},skill:{},planet:{},
+  stackErr:{probs:0,forgot:0,carryWrong:0,colCarry:0,colCarryBad:0,colPlain:0,colPlainBad:0}});
+function normalize(p){const d=blankProfile();const o=Object.assign(d,p);o.stats=Object.assign(blankProfile().stats,p.stats||{});o.stackErr=Object.assign(blankProfile().stackErr,p.stackErr||{});return o}
+let canSave=true;
+function load(){
+  try{const gg=JSON.parse(localStorage.getItem(KEY2));if(gg&&gg.v===2&&(gg.profiles||[]).length){gg.profiles=gg.profiles.map(normalize);return gg}
+    if(gg&&gg.v===2&&gg.lang){var keepLang=gg.lang}}catch(e){}
+  const G0={v:2,profiles:[],cur:null,mute:false,lang:keepLang||'ca'};
+  try{const s=JSON.parse(localStorage.getItem(KEY1));if(s&&s.v===1&&s.name){const p=normalize(s);delete p.v;G0.mute=!!s.mute;delete p.mute;G0.profiles.push(p);G0.cur=p.id}}catch(e){}
+  return G0;
+}
+let G=load();let S=null;
+function save(){try{localStorage.setItem(KEY2,JSON.stringify(G));canSave=true}catch(e){canSave=false}}
+const pad=n=>String(n).padStart(2,'0');
+const dayKey=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function dayLog(){const k=dayKey();return S.log[k]||(S.log[k]={sec:0,ok:0,bad:0})}
+function markDay(){const k=dayKey();if(!S.days.includes(k)){S.days.push(k);if(S.days.length>400)S.days=S.days.slice(-400)}
+  const keys=Object.keys(S.log).sort();if(keys.length>120)keys.slice(0,keys.length-120).forEach(k=>delete S.log[k])}
+
+const RANKS=[[['Cadet','Cadete','Cadet'],0],[['Pilot','Piloto','Pilot'],300],[['Navegant','Navegante','Navigator'],800],[['Tinent','Teniente','Lieutenant'],1600],[['Capità','Capitán','Captain'],3000],[['Comandant','Comandante','Commander'],5000],[['Almirall galàctic','Almirante galáctico','Galactic admiral'],8000]];
+const rankIdx=xp=>{let i=0;RANKS.forEach((r,k)=>{if(xp>=r[1])i=k});return i};
+const rankName=i=>tn(RANKS[i][0]);
+const HULLS=[[['Blanc acadèmia','Blanco academia','Academy white'],'#dfe6f5',0],[['Taronja Mart','Naranja Marte','Mars orange'],'#ff8a3d',1],[['Verd nebulosa','Verde nebulosa','Nebula green'],'#4fdc9a',2],[['Blau Neptú','Azul Neptuno','Neptune blue'],'#4d8dff',3],[['Violeta Andròmeda','Violeta Andrómeda','Andromeda violet'],'#b892ff',4],[['Or almirall','Oro almirante','Admiral gold'],'#ffd25e',6]];
+const ACH=[
+  {id:'calib',s:'⚙',n:['Sistemes calibrats','Sistemas calibrados','Systems calibrated'],d:['Completa el calibratge inicial','Completa la calibración inicial','Finish the first calibration']},
+  {id:'first',s:'»',n:['Primer enlairament','Primer despegue','First launch'],d:['Acaba la primera missió','Termina la primera misión','Finish your first mission']},
+  {id:'r5',s:'5',n:['Ratxa de 5','Racha de 5','Streak of 5'],d:['5 encerts seguits','5 aciertos seguidos','5 correct in a row']},
+  {id:'r10',s:'10',n:['Ratxa de 10','Racha de 10','Streak of 10'],d:['10 encerts seguits','10 aciertos seguidos','10 correct in a row']},
+  {id:'r20',s:'20',n:['Pilot imparable','Piloto imparable','Unstoppable pilot'],d:['20 encerts seguits','20 aciertos seguidos','20 correct in a row']},
+  {id:'perfect',s:'★',n:['Missió perfecta','Misión perfecta','Perfect mission'],d:['10 de 10 en una missió','10 de 10 en una misión','10 out of 10 in a mission']},
+  {id:'fast',s:'⚡',n:['Velocitat de la llum','Velocidad de la luz','Light speed'],d:['5 bonus de combustible en una missió','5 bonus de combustible en una misión','5 fuel bonuses in one mission']},
+  {id:'stack10',s:'▤',n:['Enginyer de columnes','Ingeniero de columnas','Column engineer'],d:['10 càlculs apilats correctes','10 cálculos en columna correctos','10 correct column sums']},
+  {id:'c100',s:'100',n:['Cent encerts','Cien aciertos','A hundred correct'],d:['100 respostes correctes','100 respuestas correctas','100 correct answers']},
+  {id:'c500',s:'500',n:['Cinc-cents encerts','Quinientos aciertos','Five hundred correct'],d:['500 respostes correctes','500 respuestas correctas','500 correct answers']},
+  {id:'explore',s:'◎',n:['Explorador','Explorador','Explorer'],d:['Conquereix 3 planetes','Conquista 3 planetas','Conquer 3 planets']},
+  {id:'repair',s:'⟲',n:['Mecànic de bord','Mecánico de a bordo','Ship mechanic'],d:['Repara 5 errors antics','Repara 5 errores antiguos','Fix 5 old mistakes']},
+  {id:'days3',s:'3d',n:['Tripulant constant','Tripulante constante','Steady crew member'],d:['Vola 3 dies diferents','Vuela 3 días distintos','Fly on 3 different days']},
+  {id:'days7',s:'7d',n:["Veterà de l'espai",'Veterano del espacio','Space veteran'],d:['Vola 7 dies diferents','Vuela 7 días distintos','Fly on 7 different days']},
+  {id:'solar',s:'∑',n:['Sistema solar','Sistema solar','Solar system'],d:['Conquereix Neptú','Conquista Neptuno','Conquer Neptune']},
+  {id:'kuiper',s:'∞',n:['Més enllà de Neptú','Más allá de Neptuno','Beyond Neptune'],d:['Conquereix el Cinturó de Kuiper','Conquista el Cinturón de Kuiper','Conquer the Kuiper Belt']},
+  {id:'mult',s:'×',n:['Sector desbloquejat','Sector desbloqueado','Sector unlocked'],d:['Obre el Sector Multiplicador','Abre el Sector Multiplicador','Open the Multiplication Sector']},
+  {id:'tables',s:'∏',n:['Mestre de les taules','Maestro de las tablas','Times-table master'],d:['Conquereix Andròmeda','Conquista Andrómeda','Conquer Andromeda']}
+];
+
+/* ================= Audio ================= */
+let AC=null;
+function ac(){if(G.mute)return null;try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
+function tone(f,d,type='sine',v=.12,when=0,to){const c=ac();if(!c)return;const tm=c.currentTime+when,o=c.createOscillator(),gn=c.createGain();o.type=type;o.frequency.setValueAtTime(f,tm);if(to)o.frequency.exponentialRampToValueAtTime(to,tm+d);gn.gain.setValueAtTime(v,tm);gn.gain.exponentialRampToValueAtTime(.001,tm+d);o.connect(gn).connect(c.destination);o.start(tm);o.stop(tm+d+.02)}
+function noise(d,v=.15,f1=800,f2=120){const c=ac();if(!c)return;const n=c.sampleRate*d,buf=c.createBuffer(1,n,c.sampleRate),data=buf.getChannelData(0);for(let i=0;i<n;i++)data[i]=Math.random()*2-1;const src=c.createBufferSource();src.buffer=buf;const fl=c.createBiquadFilter();fl.type='lowpass';fl.frequency.setValueAtTime(f1,c.currentTime);fl.frequency.exponentialRampToValueAtTime(f2,c.currentTime+d);const gn=c.createGain();gn.gain.setValueAtTime(v,c.currentTime);gn.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);src.connect(fl).connect(gn).connect(c.destination);src.start()}
+const sfx={
+  key(){tone(880,.04,'square',.04)},
+  ok(){tone(660,.1,'triangle',.14);tone(990,.18,'triangle',.14,.09);noise(.45,.08,1600,200)},
+  bad(){tone(170,.4,'sawtooth',.1,0,80);tone(120,.4,'square',.05,.05,70)},
+  ach(){[523,659,784,1047].forEach((f,i)=>tone(f,.22,'triangle',.12,i*.09))},
+  launch(){noise(1.4,.18,2000,90);tone(110,1.2,'sawtooth',.05,0,440)},
+  star(i){tone(700+i*180,.18,'triangle',.13)},
+  rank(){[392,523,659,784,1047].forEach((f,i)=>tone(f,.3,'square',.06,i*.12))}
+};
+
+/* ================= Starfield ================= */
+const cv=$('#stars'),cx=cv.getContext('2d');let W=0,H=0,stars=[],speed=.4,target=.4;
+function resize(){const dpr=Math.min(2,window.devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
+  stars=Array.from({length:Math.round(W*H/5000)},()=>({x:Math.random()*W,y:Math.random()*H,z:Math.random()*.9+.1}))}
+function warp(v=16){if(!reduced)speed=v}
+function frame(){speed+=(target-speed)*.04;cx.fillStyle='#060a17';cx.fillRect(0,0,W,H);
+  const grd=cx.createRadialGradient(W*.8,H*.2,0,W*.8,H*.2,W*.6);grd.addColorStop(0,'rgba(80,60,160,.12)');grd.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=grd;cx.fillRect(0,0,W,H);
+  for(const s of stars){s.x-=speed*s.z*1.5;if(s.x<-20){s.x=W+Math.random()*20;s.y=Math.random()*H}
+    const a=.3+s.z*.7;cx.strokeStyle=cx.fillStyle=`rgba(${200+s.z*55|0},${220+s.z*35|0},255,${a})`;
+    if(speed>2){cx.lineWidth=s.z*1.6;cx.beginPath();cx.moveTo(s.x,s.y);cx.lineTo(s.x+speed*s.z*4,s.y);cx.stroke()}
+    else{cx.beginPath();cx.arc(s.x,s.y,s.z*1.3,0,7);cx.fill()}}
+  requestAnimationFrame(frame)}
+window.addEventListener('resize',resize);resize();requestAnimationFrame(frame);
+
+/* ================= Visual helpers ================= */
+let shipN=0;
+function shipSVG(color,cls='ship'){const gid='fl'+(++shipN);
+  return `<svg class="${cls}" viewBox="0 0 160 80" aria-hidden="true">
+  <defs><linearGradient id="${gid}" x1="1" x2="0"><stop offset="0" stop-color="#fff6c8"/><stop offset=".4" stop-color="#ffb547"/><stop offset="1" stop-color="#ff5d2a" stop-opacity="0"/></linearGradient></defs>
+  <g class="flame"><path d="M34 30 L0 40 L34 50 Z" fill="url(#${gid})"/></g>
+  <path d="M52 28 L36 8 H58 L78 28 Z" fill="#5a6a94"/><path d="M52 52 L36 72 H58 L78 52 Z" fill="#5a6a94"/>
+  <path d="M32 27 H108 Q140 29 156 40 Q140 51 108 53 H32 Q28 40 32 27 Z" fill="${color}"/>
+  <path d="M32 46 H118 Q134 46 146 44 Q138 51 108 53 H32 Z" fill="rgba(0,0,0,.18)"/>
+  <rect x="48" y="35" width="44" height="4" rx="2" fill="#ffb547"/>
+  <ellipse cx="124" cy="37" rx="10" ry="6" fill="#62e7ff"/><ellipse cx="121" cy="35" rx="4" ry="2" fill="#e6fbff"/>
+  <rect x="26" y="31" width="8" height="18" rx="2" fill="#3a4466"/></svg>`;
+}
+function planetEl(x,size){const d=el('div','planet'+(x.ring?' ring':''));d.style.width=d.style.height=size+'px';
+  const[c1,c2,c3]=x.pl;let bg=`radial-gradient(circle at 32% 30%,${c1},${c2} 45%,${c3})`;
+  if(x.bands)bg=`repeating-linear-gradient(170deg,rgba(120,60,20,.25) 0 6%,transparent 6% 14%),`+bg;
+  d.style.background=bg;return d}
+const hullColor=(p=S)=>HULLS[p.hull]?HULLS[p.hull][1]:HULLS[0][1];
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.hidden=s.id!==id);window.scrollTo(0,0)}
+const fmtTime=sec=>{if(!sec)return'0 min';if(sec<60)return'<1 min';const m=Math.round(sec/60);return m>=60?`${Math.floor(m/60)} h ${pad(m%60)} min`:`${m} min`};
+const fmtN=n=>Number(n).toLocaleString(LOCALE[L]);
+
+/* ================= Unlock logic ================= */
+const starsOf=id=>S.stars[id]||0;
+const multOpenP=P=>P.multForced||(P.stars.t6||0)>=2||P.calTop>=6;
+const multOpen=()=>multOpenP(S);
+function isDone(x){const i=SECTOR_A.indexOf(x);return starsOf(x.id)>=2||(i>=0&&i<=S.calTop)}
+function isUnlocked(x){
+  let i=SECTOR_A.indexOf(x);
+  if(i>=0)return i===0||i<=S.calTop+1||isDone(SECTOR_A[i-1]);
+  if(!multOpen())return false;i=SECTOR_B.indexOf(x);return i===0||isDone(SECTOR_B[i-1]);
+}
+function nextTarget(){for(const x of SECTOR_A)if(isUnlocked(x)&&!isDone(x))return x;
+  for(const x of SECTOR_B)if(isUnlocked(x)&&!isDone(x))return x;
+  return multOpen()?SECTOR_B[SECTOR_B.length-1]:SECTOR_A[SECTOR_A.length-1]}
+function lastConquered(){let last=null;for(const x of ALL)if(isDone(x))last=x;return last}
+
+/* ================= Achievements ================= */
+const toastQ=[];let toasting=false;
+function toast(title,name,sym){toastQ.push({title,name,sym});if(!toasting)nextToast()}
+function nextToast(){const q=toastQ.shift();if(!q){toasting=false;return}toasting=true;
+  const d=el('div','toast');const b=el('div','badge',q.sym);const tx=el('div');tx.append(el('div','tt',q.title),el('div','tn',q.name));d.append(b,tx);$('#toasts').append(d);
+  setTimeout(()=>{d.classList.add('out');setTimeout(()=>{d.remove();nextToast()},400)},2600)}
+let newAch=[];
+function award(id){if(S.ach[id])return;S.ach[id]=Date.now();const a=ACH.find(x=>x.id===id);newAch.push(a);sfx.ach();toast(t('t.newAch'),tn(a.n),a.s);save()}
+function checkGlobal(){
+  const st=S.stats;
+  if(st.correct>=100)award('c100');if(st.correct>=500)award('c500');if(st.stackOK>=10)award('stack10');
+  if(Object.values(S.stars).filter(v=>v>=2).length>=3)award('explore');
+  if(starsOf('t9')>=2)award('solar');if(starsOf('t13')>=2)award('kuiper');if(multOpen()&&S.calibrated)award('mult');if(starsOf('m10')>=2)award('tables');
+  if(st.repaired>=5)award('repair');if(S.days.length>=3)award('days3');if(S.days.length>=7)award('days7');
+}
+function addXP(n){const before=rankIdx(S.xp);S.xp+=n;const after=rankIdx(S.xp);
+  if(after>before){setTimeout(()=>{sfx.rank();toast(t('t.rankUp'),t('t.nowRank',{r:rankName(after)}),'▲');
+    const h=HULLS.find(x=>x[2]===after);if(h)toast(t('t.hangar'),t('t.newPaint',{h:tn(h[0])}),'◆')},700)}}
+
+/* ================= Profiles screen ================= */
+function renderProfiles(){
+  const gr=$('#p-grid');gr.innerHTML='';
+  G.profiles.forEach(p=>{const b=el('button','prof');b.innerHTML=shipSVG(hullColor(p));b.append(el('div','nm',p.name),el('div','rk',t('profRank',{r:rankName(rankIdx(p.xp)),n:fmtN(p.xp)})),el('div','sh',t('ship',{n:p.ship})));b.onclick=()=>selectProfile(p.id);gr.append(b)});
+  const add=el('button','prof add',t('addCmd'));add.onclick=()=>startOnboard();gr.append(add);
+  show('scr-profiles');
+}
+function selectProfile(id){
+  G.cur=id;S=G.profiles.find(p=>p.id===id);markDay();save();
+  if(!S.calibrated){startMission('calib','calib');return}
+  checkGlobal();newAch=[];goBridge();
+}
+function startOnboard(){S=null;$('#in-name').value='';$('#in-ship').value='';$('#ob-cancel').hidden=!G.profiles.length;show('scr-onboard')}
+
+/* ================= Bridge ================= */
+function renderBridge(){
+  $('#b-name').textContent=t('cmd',{n:S.name});$('#b-shipname').textContent=t('ship',{n:S.ship});
+  $('#b-pts').textContent=fmtN(S.xp)+' pts';
+  $('#b-mute').textContent=G.mute?'🔇':'🔊';
+  $('#b-ship').innerHTML=shipSVG(hullColor());
+  const far=$('#b-far');far.innerHTML='';far.append(planetEl(lastConquered()||SECTOR_A[0],54));
+  const ri=rankIdx(S.xp),cur=RANKS[ri][1],nxt=RANKS[ri+1];
+  $('#b-rank').textContent=rankName(ri);$('#b-ranknum').textContent=ri+1;
+  const frac=nxt?(S.xp-cur)/(nxt[1]-cur):1;$('#b-dial').style.strokeDashoffset=264*(1-frac);
+  $('#b-next').textContent=nxt?t('nextRank',{n:fmtN(nxt[1]-S.xp),r:rankName(ri+1)}):t('maxRank');
+  $('#r-ok').textContent=fmtN(S.stats.correct);$('#r-streak').textContent=S.stats.bestStreak;
+  $('#r-ach').textContent=`${Object.keys(S.ach).length}/${ACH.length}`;$('#r-days').textContent=S.days.length;
+  const nt=nextTarget();const lb=$('#b-launch');lb.innerHTML='';lb.append(document.createTextNode(t('launchTo',{p:pn(nt)})));lb.append(el('small',null,ps(nt)));lb.onclick=()=>startMission(nt.id);
+  const wk=Object.keys(S.weak).length;const rb=$('#b-repair');rb.textContent=wk?t('workshopN',{n:wk}):t('workshop');rb.disabled=!wk;
+  const map=$('#b-map');map.querySelectorAll('.sector').forEach(s=>s.remove());
+  map.append(sectorEl(t('secA.h'),t('secA.p'),SECTOR_A,true,nt));
+  const open=multOpen();
+  const sb=sectorEl(t('secB.h'),t('secB.p'),SECTOR_B,open,nt);
+  if(!open){sb.insertBefore(el('div','lock-banner',t('secB.lock')),sb.querySelector('.nodes'))}
+  map.append(sb);
+}
+function sectorEl(title,desc,list,open,nt){
+  const s=el('div','sector'+(open?'':' closed'));s.append(el('h2',null,title),el('p',null,desc));
+  const gd=el('div','nodes');
+  for(const x of list){const u=isUnlocked(x);const b=el('button','node'+(u?'':' locked')+(x===nt&&u?' target':''));b.disabled=!u;b.dataset.target=t('target');
+    b.append(planetEl(x,52),el('div','nm',pn(x)),el('div','sk',ps(x)));
+    const st=el('div','st');const n=starsOf(x.id);for(let i=0;i<3;i++)st.append(el('span',i<n?'':'off','★'));b.append(st);
+    const ia=SECTOR_A.indexOf(x);if(!u)b.append(el('span','lock',t('locked')));else if(n<2&&ia>=0&&ia<=S.calTop)b.append(el('span','lock',t('calibPassed')));
+    b.onclick=()=>startMission(x.id);gd.append(b)}
+  s.append(gd);return s}
+
+/* ================= Mission ================= */
+let M=null;const QN=10;
+function buildQueue(tier){
+  const x=TIER[tier],keys=new Set();let nS=x.stack?x.nStack:0,nM=QN-nS;const q=[];
+  const weak=shuffle(Object.values(S.weak).filter(w=>w.tier===tier));
+  for(const w of weak.slice(0,2)){const p=JSON.parse(JSON.stringify(w.p));q.push(p);keys.add(keyOf(p));if(isStack(p))nS--;else nM--}
+  const add=(gen,n)=>{let c=0,guard=0;while(c<n&&guard++<500){const p=gen();if(keys.has(keyOf(p)))continue;keys.add(keyOf(p));q.push(p);c++}};
+  add(x.gen,Math.max(0,nM));if(x.stack)add(x.stack,Math.max(0,nS));
+  return shuffle(q);
+}
+function startMission(tier,mode){
+  const m={tier,mode:mode||'normal',queue:[],idx:0,correct:0,firsts:0,streak:0,shields:3,fuel:0,speedCount:0,points:0,reasked:0,input:'',lock:false,repairedNow:0};
+  if(m.mode==='repair'){m.queue=Object.values(S.weak).sort((a,b)=>b.n-a.n).slice(0,QN).map(w=>({...JSON.parse(JSON.stringify(w.p)),tier:w.tier}));m.total=m.queue.length}
+  else if(m.mode==='calib'){m.cal={tier:2,ok:0,bad:0,mastered:-1,wentDown:false,n:0,max:16};m.total=16;m.queue=[SECTOR_A[2].gen()]}
+  else{m.queue=buildQueue(tier);m.total=QN}
+  M=m;newAch=[];target=1.4;sfx.launch();warp(14);
+  const x=TIER[tier]||SECTOR_A[2];
+  $('#m-title').textContent=m.mode==='calib'?t('m.calib'):m.mode==='repair'?t('m.repair'):t('m.to',{p:pn(x)});
+  const from=$('#m-from'),to=$('#m-to');from.innerHTML='';to.innerHTML='';
+  if(m.mode==='normal'){const i=ALL.indexOf(x);const prev=SECTOR_A.indexOf(x)>0?ALL[i-1]:{pl:['#9fb0d0','#4a5a80','#1a2440']};from.append(planetEl(prev,22));to.append(planetEl(x,28))}
+  $('#m-marker').innerHTML=shipSVG(hullColor()).replace(/^<svg[^>]*>|<\/svg>$/g,'');
+  $('#m-ship').innerHTML=shipSVG(hullColor());
+  $('#m-shields').innerHTML='<i></i><i></i><i></i>';$('#m-fuel').innerHTML=Array.from({length:5},(_,i)=>`<i style="height:${10+i*4}px"></i>`).join('');
+  show('scr-mission');updateHUD();showProblem();
+}
+function tierOfProblem(p){return M.mode==='calib'?SECTOR_A[M.cal.tier]:TIER[p.tier||M.tier]}
+function updateHUD(){
+  const done=M.mode==='calib'?M.cal.n:M.firsts;const frac=Math.min(1,done/M.total);
+  $('#m-fill').style.width=(frac*100)+'%';$('#m-marker').style.left=(frac*100)+'%';
+  [...$('#m-shields').children].forEach((s,i)=>s.classList.toggle('off',i>=M.shields));
+  [...$('#m-fuel').children].forEach((f,i)=>f.classList.toggle('on',i<M.fuel));
+  $('#m-score').textContent=M.points;
+  $('#m-streak').textContent=M.streak>=2?t('streak',{n:M.streak}):'';
+  $('#m-cap').textContent=M.mode==='calib'?t('cap.calib',{n:M.cal.n+1}):t('cap.nav',{n:Math.min(M.firsts+1,M.total),t:M.total});
+}
+function showProblem(){
+  if(M.idx>=M.queue.length){finishMission();return}
+  const p=M.queue[M.idx];M.input='';M.lock=false;M.t0=performance.now();
+  $('#kp').classList.remove('locked');$('#m-fb').innerHTML='';
+  const stack=isStack(p);$('#scr-mission').classList.toggle('stackmode',stack);
+  $('#m-expr').hidden=stack;$('#m-stack').hidden=!stack;$('#m-tip').hidden=!stack;
+  const gr=$('#m-groups');gr.innerHTML='';gr.hidden=!p.groups;
+  if(stack){
+    M.model=stackModel(p,S.subMethod);M.st={r:Array(M.model.n).fill(''),c:Array(M.model.n).fill('')};M.sel={t:'r',i:0};
+    $('#m-tip').textContent=t('tip.'+M.model.method);
+    renderStackLive();
+  }else{
+    if(p.groups){for(let r=0;r<p.a;r++){const row=el('div','row');for(let c=0;c<p.b;c++)row.append(el('i','crate'));gr.append(row)}
+      gr.append(el('div','gl',t('groupsQ',{a:p.a,b:p.b})))}
+    renderExpr();
+  }
+  updateHUD();
+}
+function renderExpr(state){
+  const p=M.queue[M.idx],r=calc(p),ex=$('#m-expr');ex.innerHTML='';
+  const slot=()=>{const s=el('span','slot'+(M.input?'':' empty')+(state?' '+state:''),M.input);s.id='m-slot';return s};
+  const parts=[p.h===0?null:p.a,opChar(p.op),p.h===1?null:p.b];if(p.c)parts.push('+',p.c);parts.push('=',p.h===2?null:r);
+  for(const x of parts){if(x===null)ex.append(slot());else ex.append(el('span',null,String(x)))}
+}
+function renderStackLive(marks){
+  const w=$('#m-stack');w.innerHTML='';
+  w.append(buildStack(M.model,{interactive:!marks,vals:M.st,sel:marks?null:M.sel,marks}));
+}
+$('#m-stack').addEventListener('pointerdown',e=>{const b=e.target.closest('[data-t]');if(!b||!M||M.lock)return;e.preventDefault();M.sel={t:b.dataset.t,i:+b.dataset.i};sfx.key();renderStackLive()});
+
+function press(k){
+  if(!M||M.lock)return;const p=M.queue[M.idx];
+  if(isStack(p)){pressStack(k);return}
+  if(k==='del'){M.input=M.input.slice(0,-1)}
+  else if(k==='go'){if(M.input)submitMental();return}
+  else if(/^\d$/.test(k)&&M.input.length<5){M.input=(M.input==='0'?'':M.input)+k}
+  else return;
+  sfx.key();renderExpr();
+}
+function pressStack(k){
+  const st=M.st,sel=M.sel,n=M.model.n;
+  if(k==='go'){if(st.r.some(v=>v!==''))submitStack();return}
+  if(k==='del'){if(sel.t==='c')st.c[sel.i]='';else if(st.r[sel.i]!=='')st.r[sel.i]='';else if(sel.i>0){sel.i--;st.r[sel.i]=''}}
+  else if(k==='left'){if(sel.t==='r'&&sel.i<n-1)sel.i++}
+  else if(k==='right'){if(sel.t==='r'&&sel.i>0)sel.i--}
+  else if(/^\d$/.test(k)){
+    if(sel.t==='c'){st.c[sel.i]=k;const e=st.r.findIndex(v=>v==='');M.sel={t:'r',i:e<0?Math.min(sel.i,n-1):e}}
+    else{st.r[sel.i]=k;if(sel.i<n-1)sel.i++}
+  }else return;
+  sfx.key();renderStackLive();
+}
+
+function logAnswer(p,ok,secs,tierId){
+  const kind=isStack(p)?'stack':p.op==='×'?'mult':'mental';const sk=kind==='mult'?'mult':kind+(p.op==='-'?'-':'+');
+  const s=S.skill[sk]||(S.skill[sk]={ok:0,bad:0,sec:0});s[ok?'ok':'bad']++;s.sec+=Math.min(secs,180);
+  const pl=S.planet[tierId]||(S.planet[tierId]={ok:0,bad:0});pl[ok?'ok':'bad']++;
+  dayLog()[ok?'ok':'bad']++;
+}
+function storeWeak(p,key,tierId){
+  const w=S.weak[key];if(w){w.n=Math.min(3,w.n+1);return}
+  const cp=isStack(p)?{kind:'stack',op:p.op,nums:p.nums.slice()}:{a:p.a,b:p.b,op:p.op,h:p.h};
+  if(p.c)cp.c=p.c;if(p.groups)cp.groups=true;S.weak[key]={tier:tierId,p:cp,n:2};
+}
+function submitMental(){
+  const p=M.queue[M.idx];const ok=parseInt(M.input,10)===answer(p);
+  resolve(p,ok,{after:()=>{if(ok){renderExpr('ok');okBanner(false)}else{renderExpr('bad')}}});
+}
+function submitStack(){
+  const p=M.queue[M.idx];const gr=gradeStack(M.model,M.st);
+  const se=S.stackErr;se.probs++;if(gr.forgot)se.forgot++;if(gr.wrongC)se.carryWrong++;
+  gr.cols.forEach(c=>{if(c.carry){se.colCarry++;if(!c.ok)se.colCarryBad++}else{se.colPlain++;if(!c.ok)se.colPlainBad++}});
+  if(gr.allOK)S.stats.stackOK++;
+  resolve(p,gr.allOK,{stack:true,after:()=>{renderStackLive(gr.marks);if(gr.allOK)okBanner(true,gr.forgot?t('ok.forgot'):gr.wrongC?t('ok.wrongC'):'')}});
+}
+function okBanner(stack,sub){
+  const fb=$('#m-fb');fb.innerHTML='';const box=el('div','fb okmsg'+(stack?' banner':''));
+  box.append(el('div','big',pick(OKW[L])));if(sub)box.append(el('div','sub',sub));fb.append(box);
+}
+function resolve(p,ok,opt){
+  const secs=(performance.now()-M.t0)/1000,isReask=!!p.reask;M.lock=true;$('#kp').classList.add('locked');
+  const key=keyOf(p),tierId=p.tier||(M.mode==='calib'?SECTOR_A[M.cal.tier].id:M.tier);
+  if(M.mode==='calib')M.cal.n++;else if(!isReask)M.firsts++;
+  logAnswer(p,ok,secs,tierId);
+  if(ok){
+    S.stats.correct++;M.streak++;if(!isReask||M.mode==='repair')M.correct++;
+    if(M.streak>S.stats.bestStreak)S.stats.bestStreak=M.streak;
+    let pts=isStack(p)?20:10;const tr=tierOfProblem(p);const lim=isStack(p)?(tr.sspeed||45):tr.speed;
+    if(M.streak>=3)pts+=5;if(secs<=lim){pts+=5;M.fuel=Math.min(5,M.fuel+1);M.speedCount++}
+    if(M.streak%3===0&&M.shields<3)M.shields++;
+    M.points+=pts;addXP(pts);
+    if(S.weak[key]){S.weak[key].n--;if(S.weak[key].n<=0){delete S.weak[key];S.stats.repaired++;M.repairedNow++}}
+    if(M.streak===5)award('r5');if(M.streak===10)award('r10');if(M.streak===20)award('r20');
+    checkGlobal();save();opt.after();sfx.ok();warp(18);
+    const sw=$('#m-shipwrap');sw.classList.add('push');const sh=sw.querySelector('.ship');sh&&sh.classList.add('boost');
+    setTimeout(()=>{sw.classList.remove('push');sh&&sh.classList.remove('boost')},600);
+    const f=el('div','floater','+'+pts);f.style.left='50%';f.style.top='40%';$('#m-screen').append(f);setTimeout(()=>f.remove(),1000);
+    updateHUD();if(M.mode==='calib')calibStep(true);
+    const wait=isStack(p)?($('#m-fb .sub')?2600:1500):1000;
+    setTimeout(()=>{M.idx++;showProblem()},wait);
+  }else{
+    S.stats.wrong++;M.streak=0;M.shields=Math.max(0,M.shields-1);storeWeak(p,key,tierId);
+    save();sfx.bad();opt.after();
+    if(!reduced){$('#scr-mission').classList.add('shake');setTimeout(()=>$('#scr-mission').classList.remove('shake'),450)}
+    const fl=$('#flash');fl.classList.remove('on');void fl.offsetWidth;fl.classList.add('on');
+    const ast=$('#m-ast');ast.classList.remove('fly');void ast.offsetWidth;ast.classList.add('fly');
+    updateHUD();
+    M.lastPushed=false;if(M.mode==='normal'&&!isReask&&M.reasked<3){M.reasked++;M.lastPushed=true;M.queue.push({...JSON.parse(JSON.stringify(p)),reask:true})}
+    if(M.mode==='calib')calibStep(false);
+    setTimeout(()=>showHint(p),isStack(p)?1600:550);
+  }
+}
+function showHint(p){
+  const fb=$('#m-fb');fb.innerHTML='';const box=el('div','fb badmsg');
+  const hint=el('div','hint');
+  if(isStack(p)){
+    box.append(el('div','big',t('bad.stack')));
+    const a=el('div');a.append(document.createTextNode(t('ansIs')),el('span','ans',String(answer(p))));hint.append(a);
+    const m=M.model;const sol=el('div','sol');
+    sol.append(buildStack(m,{mini:true,vals:{r:m.res.map(d=>d==null?'':String(d)),c:m.carry.map(x=>x||'')}}));
+    const ol=el('ol');m.steps.forEach(l=>ol.append(el('li',null,l)));sol.append(ol);hint.append(sol);
+  }else{
+    box.append(el('div','big',t('bad.mental')));
+    const h=hintFor(p);const a=el('div');a.append(document.createTextNode(t('ansWas')),el('span','ans',String(answer(p))));hint.append(a);
+    if(h.dots&&h.dots.rows*h.dots.cols<=60){const d=el('div','dots');d.style.gridTemplateColumns=`repeat(${h.dots.cols},10px)`;for(let i=0;i<h.dots.rows*h.dots.cols;i++)d.append(el('i'));hint.append(d)}
+    const ol=el('ol');h.lines.forEach(l=>ol.append(el('li',null,l)));hint.append(ol);
+  }
+  if(M.lastPushed)hint.append(el('p',null,t('reask')));
+  box.append(hint);
+  const b=el('button','btn primary',t('cont'));b.id='m-cont';b.onclick=()=>{M.idx++;showProblem()};box.append(b);fb.append(box);
+  setTimeout(()=>b.focus(),50);
+}
+function calibStep(ok){
+  const c=M.cal;
+  if(ok){c.ok++;if(c.ok>=2){c.mastered=Math.max(c.mastered,c.tier);c.tier++;c.ok=c.bad=0}}
+  else{c.bad++;if(c.bad>=2){if(!c.wentDown&&c.tier===2&&c.mastered<2){c.wentDown=true;c.tier=0;c.ok=c.bad=0}else c.end=true}}
+  if(c.tier>CAL_MAX||c.n>=c.max)c.end=true;
+  if(!c.end){let p,guard=0;const seen=new Set(M.queue.map(keyOf));do{p=SECTOR_A[c.tier].gen()}while(seen.has(keyOf(p))&&guard++<50);M.queue.push(p)}
+}
+function finishMission(){
+  target=.4;const m=M;let starsN=0;
+  if(m.mode==='calib'){S.calibrated=true;S.calTop=m.cal.mastered;award('calib')}
+  else if(m.mode==='repair'){S.stats.missions++}
+  else{
+    starsN=m.correct>=10?3:m.correct>=8?2:m.correct>=6?1:0;const wasOpen=multOpen();
+    S.stars[m.tier]=Math.max(starsOf(m.tier),starsN);S.best[m.tier]=Math.max(S.best[m.tier]||0,m.correct);
+    S.stats.missions++;const bonus=starsN*20;m.points+=bonus;addXP(bonus);
+    award('first');if(m.correct>=10)award('perfect');if(m.speedCount>=5)award('fast');
+    m.newSector=!wasOpen&&multOpen();
+  }
+  checkGlobal();save();renderResult(m,starsN);
+}
+function renderResult(m,starsN){
+  const c=$('#res-card');c.innerHTML='';
+  c.append(el('span','panel-tag',t(m.mode==='calib'?'tag.calib':m.mode==='repair'?'tag.repair':'tag.mission')));
+  const actions=el('div','res-actions');
+  if(m.mode==='calib'){
+    const top=m.cal.mastered;const nt=nextTarget();
+    const pw=el('div','result-planet');pw.append(planetEl(nt,120));c.append(pw);
+    c.append(el('h1',null,t('r.calibH')));
+    c.append(el('p',null,top>=0?t('r.calibTop',{p:pn(SECTOR_A[top]),s:lc(ps(SECTOR_A[top]))}):t('r.calibZero')));
+    c.append(el('p',null,t('r.first',{p:pn(nt),s:lc(ps(nt))})));
+    const go=el('button','btn primary',t('launchTo',{p:pn(nt)}));go.onclick=()=>startMission(nt.id);
+    const br=el('button','btn',t('toBridge'));br.onclick=goBridge;actions.append(go,br);
+  }else{
+    const x=TIER[m.tier];
+    if(m.mode==='normal'){const pw=el('div','result-planet');pw.append(planetEl(x,starsN>=2?130:90));c.append(pw)}
+    c.append(el('h1',null,m.mode==='repair'?t('r.repairH'):starsN>=2?t('r.arrived',{p:pn(x)}):starsN===1?t('r.almost',{p:pn(x)}):t('r.base')));
+    if(m.mode==='normal'){
+      const bs=el('div','big-stars');for(let i=0;i<3;i++){const s=el('span',null,'★');bs.append(s);if(i<starsN)setTimeout(()=>{s.classList.add('on');sfx.star(i)},500+i*350)}c.append(bs);
+      c.append(el('p',null,starsN>=2?(m.newSector?t('r.newSector'):t('r.conquered')):t('r.need8')));
+    }else c.append(el('p',null,m.repairedNow?(m.repairedNow===1?t('r.repaired1'):t('r.repairedN',{n:m.repairedNow})):t('r.repairNone')));
+    const rg=el('div','res-grid');const ro=(l,v)=>{const r=el('div','readout');r.append(el('div','label',l),el('div','v',v));return r};
+    rg.append(ro(t('correct'),`${m.correct}/${m.total}`),ro(t('points'),'+'+m.points),ro(t('fuel'),`${m.speedCount}`));c.append(rg);
+    if(newAch.length){const na=el('div','newach');na.append(el('div','label',t('newAch')));newAch.forEach(a=>{const r=el('div','ach');const tx=el('div');tx.append(el('div','an',tn(a.n)),el('div','ad',tn(a.d)));r.append(el('div','badge',a.s),tx);na.append(r)});c.append(na)}
+    if(m.mode==='normal'){
+      if(starsN>=2){const nt=nextTarget();if(nt!==x){const go=el('button','btn primary',t('next',{p:pn(nt)}));go.onclick=()=>startMission(nt.id);actions.append(go)}}
+      const again=el('button','btn'+(starsN<2?' primary':''),starsN<2?t('retry'):t('replay'));again.onclick=()=>startMission(m.tier);actions.append(again);
+    }
+    const br=el('button','btn',t('toBridge'));br.onclick=goBridge;actions.append(br);
+  }
+  c.append(actions);newAch=[];show('scr-result');
+}
+function goBridge(){M=null;target=.4;renderBridge();show('scr-bridge')}
+
+/* ================= Keypad & keyboard ================= */
+(function(){const kp=$('#kp');
+  ['7','8','9','4','5','6','1','2','3','0','del'].forEach(k=>{const b=el('button','key'+(k==='del'?' del':''),k==='del'?'':k);if(k==='del'){b.style.gridColumn='span 2';b.dataset.i18n='key.del'}b.dataset.k=k;kp.append(b)});
+  const go=el('button','key go');go.dataset.i18n='key.go';go.dataset.k='go';kp.append(go);
+  kp.addEventListener('pointerdown',e=>{const b=e.target.closest('.key');if(!b)return;e.preventDefault();press(b.dataset.k)});
+})();
+document.addEventListener('keydown',e=>{
+  if($('#scr-mission').hidden||!$('#modal').hidden)return;
+  if(M&&M.lock){if(e.key==='Enter'){const c=$('#m-cont');if(c){e.preventDefault();c.click()}}return}
+  let k=null;if(/^[0-9]$/.test(e.key))k=e.key;else if(e.key==='Backspace')k='del';else if(e.key==='Enter')k='go';else if(e.key==='ArrowLeft')k='left';else if(e.key==='ArrowRight')k='right';
+  if(k){e.preventDefault();press(k);const b=$(`#kp [data-k="${k}"]`);if(b){b.classList.add('press');setTimeout(()=>b.classList.remove('press'),90)}}
+});
+
+/* ================= Active-time tracking ================= */
+let lastAct=Date.now(),tick=0;
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{lastAct=Date.now()},true));
+setInterval(()=>{
+  if(!S||document.hidden||!$('#modal').hidden)return;
+  if(!$('#scr-profiles').hidden||!$('#scr-onboard').hidden)return;
+  if(Date.now()-lastAct>60000)return;
+  dayLog().sec++;if(++tick%15===0)save();
+},1000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+
+/* ================= Modals ================= */
+function openModal(build){const b=$('#modal-body');b.innerHTML='';build(b);$('#modal').hidden=false;b.scrollTop=0}
+function closeModal(){$('#modal').hidden=true}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+function modalHead(b,title){const h=el('div','modal-head');h.append(el('h2',null,title));const x=el('button','icon-btn','✕');x.setAttribute('aria-label',t('close'));x.onclick=closeModal;h.append(x);b.append(h)}
+
+$('#b-ach').onclick=()=>openModal(b=>{modalHead(b,t('achievements'));const gd=el('div','ach-grid');
+  ACH.forEach(a=>{const r=el('div','ach'+(S.ach[a.id]?'':' off'));r.append(el('div','badge',a.s));const tx=el('div');tx.append(el('div','an',tn(a.n)),el('div','ad',tn(a.d)));r.append(tx);gd.append(r)});b.append(gd)});
+$('#b-hangar').onclick=()=>openModal(b=>{modalHead(b,t('hangar'));b.append(el('p',null,t('hangarP')));
+  const gd=el('div','hulls');const ri=rankIdx(S.xp);
+  HULLS.forEach((h,i)=>{const btn=el('button','hull'+(S.hull===i?' sel':''));btn.disabled=ri<h[2];btn.innerHTML=shipSVG(h[1]);btn.append(el('div','an',tn(h[0])),el('div','label',ri<h[2]?t('hRank',{r:rankName(h[2])}):(S.hull===i?t('installed'):t('available'))));
+    btn.onclick=()=>{S.hull=i;save();sfx.ach();closeModal();renderBridge()};gd.append(btn)});b.append(gd)});
+$('#b-repair').onclick=()=>{if(Object.keys(S.weak).length)startMission('repair','repair')};
+$('#b-mute').onclick=()=>{G.mute=!G.mute;save();renderBridge();if(!G.mute)sfx.key()};
+$('#b-switch').onclick=()=>{save();S=null;renderProfiles()};
+$('#m-abort').onclick=()=>openModal(b=>{modalHead(b,t('abortH'));b.append(el('p',null,t('abortP')));
+  const r=el('div','res-actions');const y=el('button','btn primary',t('abortYes'));y.onclick=()=>{closeModal();goBridge()};const n=el('button','btn',t('abortNo'));n.onclick=closeModal;r.append(y,n);b.append(r)});
+function optionsModal(){openModal(b=>{
+  modalHead(b,t('options'));
+  const r0=el('div','setrow');r0.append(el('span',null,t('lang')),langSeg(optionsModal));b.append(r0);
+  const r1=el('div','setrow');r1.append(el('span',null,t('sound')));const mb=el('button','btn',G.mute?t('soundOn'):t('soundOff'));mb.onclick=()=>{G.mute=!G.mute;save();renderBridge();mb.textContent=G.mute?t('soundOn'):t('soundOff')};r1.append(mb);b.append(r1);
+  if(!canSave)b.append(el('p','note',t('noSave')));
+  const r2=el('div','setrow');r2.append(el('span',null,t('parentsRow')));const pb=el('button','btn',t('parents'));pb.onclick=()=>gate(S&&S.id);r2.append(pb);b.append(r2);
+})}
+$('#b-settings').onclick=optionsModal;
+$('#p-parents').onclick=()=>gate(null);
+
+function gate(focusId){openModal(b=>{
+  modalHead(b,t('parents'));const a=rnd(12,19),c=rnd(13,18);
+  b.append(el('p','note',t('gateQ',{a,b:c})));
+  const row=el('div','setrow');const inp=el('input');inp.id='gate';inp.inputMode='numeric';inp.autocomplete='off';inp.style.cssText='font:700 20px var(--f-mono);background:rgba(3,6,16,.7);border:2px solid var(--line-hi);border-radius:10px;color:var(--cyan);padding:8px 12px;width:120px';
+  const go=el('button','btn',t('enter'));const msg=el('span','label');
+  go.onclick=()=>{if(parseInt(inp.value,10)===a*c)parentPanel(focusId||(G.profiles[0]&&G.profiles[0].id));else msg.textContent=t('gateBad')};
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')go.click()});row.append(inp,go,msg);b.append(row);setTimeout(()=>inp.focus(),50);
+})}
+
+/* ================= Parent report ================= */
+function last14(){const out=[];const d=new Date();for(let i=13;i>=0;i--){const x=new Date(d);x.setDate(d.getDate()-i);out.push(dayKey(x))}return out}
+const pct=(ok,bad)=>ok+bad?Math.round(ok/(ok+bad)*100):null;
+const SKILLS=['mental+','mental-','stack+','stack-','mult'];
+function reportStats(P){
+  const days=last14(),logs=days.map(d=>P.log[d]||{sec:0,ok:0,bad:0});
+  const sec14=logs.reduce((s,l)=>s+l.sec,0),active=logs.filter(l=>l.sec>0).length;
+  const sum=(a,k)=>a.reduce((s,l)=>s+l[k],0);const wk=logs.slice(7),prev=logs.slice(0,7);
+  const pW=pct(sum(wk,'ok'),sum(wk,'bad')),pP=pct(sum(prev,'ok'),sum(prev,'bad'));const tot=P.stats.correct+P.stats.wrong;
+  const mins=logs.map(l=>l.sec/60),mx=Math.max(10,Math.ceil(Math.max(...mins)/10)*10);
+  const tiles=[
+    [t('time14'),fmtTime(sec14),t(active===1?'activeDays1':'activeDaysN',{n:active})],
+    [t('avgDay'),active?fmtTime(sec14/active):'–',t('activeOnly')],
+    [t('accTotal'),tot?pct(P.stats.correct,P.stats.wrong)+'%':'–',t('accOf',{a:fmtN(P.stats.correct),b:fmtN(tot)})],
+    [t('last7'),pW!=null?pW+'%':'–',pW!=null&&pP!=null?t('vsPrev',{arrow:pW>=pP?'▲':'▼',n:Math.abs(pW-pP),p:pP}):t('noCompare'),pW!=null&&pP!=null?(pW>=pP?'up':'down'):''],
+    [t('missions'),String(P.stats.missions),t('bestStreakV',{n:P.stats.bestStreak})],
+    [t('rank'),rankName(rankIdx(P.xp)),t('pointsV',{n:fmtN(P.xp)})]
+  ];
+  const se=P.stackErr;let stackLines=null,stackHard=false;
+  if(se.probs){stackLines=[t('stackDone',{n:se.probs}),t('stackForgot',{n:se.forgot,p:Math.round(se.forgot/se.probs*100),w:se.carryWrong})];
+    const cc=pct(se.colCarry-se.colCarryBad,se.colCarryBad),cp=pct(se.colPlain-se.colPlainBad,se.colPlainBad);
+    if(cc!=null&&cp!=null){stackLines.push(t('stackCols',{a:cc,b:cp}));stackHard=cc<cp-10}}
+  const weak=Object.values(P.weak).sort((x,y)=>y.n-x.n).slice(0,20).map(w=>{const p=w.p;if(isStack(p))return p.nums.join(` ${opChar(p.op)} `)+` = ${answer(p)}`;const r=calc(p);return[p.h===0?'?':p.a,opChar(p.op),p.h===1?'?':p.b].concat(p.c?['+',p.c]:[]).concat(['=',p.h===2?'?':r]).join(' ')+` (${answer(p)})`});
+  return{days,logs,mins,mx,tiles,stackLines,stackHard,weak};
+}
+function chartSVG(R,cls){
+  const Wc=640,Hc=190,Lp=40,B=26,Tp=10,Rp=8,bw=(Wc-Lp-Rp)/14;const inl=!cls;
+  let svg=`<svg ${cls?`class="${cls}"`:'width="100%"'} viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="${t('chartAria')}">`;
+  [0,R.mx/2,R.mx].forEach(v=>{const y=Hc-B-(v/R.mx)*(Hc-B-Tp);svg+=`<line class="grid" x1="${Lp}" x2="${Wc-Rp}" y1="${y}" y2="${y}"${inl?' stroke="#d9dee8"':''}/><text x="${Lp-6}" y="${y+4}" text-anchor="end"${inl?' font-size="11" fill="#5a6378"':''}>${Math.round(v)}′</text>`});
+  R.mins.forEach((m,i)=>{const h=(m/R.mx)*(Hc-B-Tp),x=Lp+i*bw+bw*.18,y=Hc-B-h;svg+=`<rect class="bar${i===13?' today':''}" x="${x}" y="${y}" width="${bw*.64}" height="${Math.max(h,m>0?2:0)}" rx="3"${inl?' fill="#2f6fd6"':''}/>`;
+    if(i%2===1||i===13||inl){const[,mo,da]=R.days[i].split('-');svg+=`<text x="${x+bw*.32}" y="${Hc-8}" text-anchor="middle"${inl?' font-size="10" fill="#5a6378"':''}>${+da}/${+mo}</text>`}});
+  return svg+'</svg>';
+}
+function parentPanel(pid){openModal(b=>{
+  modalHead(b,t('parents'));
+  const lr=el('div','setrow');lr.append(el('span',null,t('lang')),langSeg(()=>parentPanel(pid)));b.append(lr);
+  if(!G.profiles.length){b.append(el('p','note',t('noProfiles')));return}
+  const P=G.profiles.find(x=>x.id===pid)||G.profiles[0];pid=P.id;
+  const tabs=el('div','tabs');G.profiles.forEach(p=>{const tb=el('button','btn'+(p===P?' on':''),p.name);tb.onclick=()=>parentPanel(p.id);tabs.append(tb)});b.append(tabs);
+  const R=reportStats(P);
+  const tiles=el('div','tiles');
+  R.tiles.forEach(([l,v,s,cls])=>{const tl=el('div','tile');tl.append(el('div','label',l),el('div','v'+(cls?' '+cls:''),v));if(s)tl.append(el('div','s',s));tiles.append(tl)});b.append(tiles);
+  b.append(el('div','sec-h',t('chartH')));const cw=el('div');cw.innerHTML=chartSVG(R,'chart');b.append(cw);
+
+  b.append(el('div','sec-h',t('skillsH')));
+  const tw=el('div','tbl-wrap'),tbl=el('table','tbl');
+  const th=el('thead'),thr=el('tr');[t('thType'),t('thAnswers'),t('thAcc'),'',t('thAvg')].forEach(x=>thr.append(el('th',null,x)));th.append(thr);tbl.append(th);
+  const body=el('tbody');SKILLS.forEach(k=>{const s=P.skill[k]||{ok:0,bad:0,sec:0},n=s.ok+s.bad,pc=pct(s.ok,s.bad);
+    const tr=el('tr');tr.append(el('td',null,t('sk.'+k)),el('td','n',String(n)),el('td','n',pc==null?'–':pc+'%'));
+    const mt=el('td');const me=el('div','meter');const bar=el('i');bar.style.width=(pc||0)+'%';if(pc!=null&&pc<70)bar.style.background='var(--alert)';else if(pc!=null&&pc<85)bar.style.background='var(--amber)';me.append(bar);mt.append(me);tr.append(mt);
+    tr.append(el('td','n',n?Math.round(s.sec/n)+' s':'–'));body.append(tr)});tbl.append(body);tw.append(tbl);b.append(tw);
+
+  b.append(el('div','sec-h',t('stackH')));
+  if(!R.stackLines)b.append(el('p','note',t('stackNone')));
+  else{const ul=el('ul','note');R.stackLines.forEach((l,i)=>ul.append(el('li',null,l+(i===2&&R.stackHard?' '+t('stackHard'):''))));b.append(ul)}
+
+  b.append(el('div','sec-h',t('planetsH')));
+  const pw=el('div','tbl-wrap'),pt=el('table','tbl');const pth=el('thead'),ptr=el('tr');[t('thPlanet'),t('thSkill'),t('thStars'),t('thBest'),t('thAcc')].forEach(x=>ptr.append(el('th',null,x)));pth.append(ptr);pt.append(pth);
+  const pb=el('tbody');ALL.forEach(x=>{const st=P.planet[x.id]||{ok:0,bad:0},pc=pct(st.ok,st.bad);const tr=el('tr');
+    tr.append(el('td',null,pn(x)),el('td',null,ps(x)),el('td','n','★'.repeat(P.stars[x.id]||0)||'–'),el('td','n',P.best[x.id]!=null?P.best[x.id]+'/10':'–'),el('td','n',pc==null?'–':pc+'%'));pb.append(tr)});
+  pt.append(pb);pw.append(pt);b.append(pw);
+
+  b.append(el('div','sec-h',t('weakH')));
+  if(!R.weak.length)b.append(el('p','note',t('weakNone')));
+  else{const pp=el('p','note mono');pp.textContent=R.weak.join('   ·   ');b.append(pp)}
+
+  b.append(el('div','sec-h',t('settingsOf',{n:P.name})));
+  const r0=el('div','setrow');r0.append(el('span',null,t('subMethod')));const seg=el('div','seg');
+  [['comp','comp'],['borrow','borrow']].forEach(([v,k])=>{const bt=el('button',P.subMethod===v?'on':'',t(k));bt.onclick=()=>{P.subMethod=v;save();parentPanel(P.id)};seg.append(bt)});r0.append(seg);b.append(r0);
+  b.append(el('p','note',t(P.subMethod==='comp'?'compDesc':'borrowDesc')));
+  const mo=multOpenP(P);const r1=el('div','setrow');r1.append(el('span',null,t(mo?'multOpen':'multClosed')));
+  if(!mo){const mb=el('button','btn',t('openNow'));mb.onclick=()=>{P.multForced=true;save();parentPanel(P.id)};r1.append(mb)}b.append(r1);
+  const r2=el('div','setrow');r2.append(el('span',null,t('recal')));const cb=el('button','btn',t('calibrate'));cb.onclick=()=>{closeModal();G.cur=P.id;S=P;save();startMission('calib','calib')};r2.append(cb);b.append(r2);
+  const r3=el('div','setrow');r3.append(el('span',null,t('delProf',{n:P.name})));const db=el('button','btn danger',t('del'));
+  db.onclick=()=>{if(db.dataset.arm){G.profiles=G.profiles.filter(x=>x!==P);if(G.cur===P.id){G.cur=null;S=null}save();closeModal();boot()}else{db.dataset.arm='1';db.textContent=t('confirmDel')}};r3.append(db);b.append(r3);
+  const r4=el('div','setrow');r4.append(el('span',null,t('sound')));const sb=el('button','btn',G.mute?t('soundOn'):t('soundOff'));sb.onclick=()=>{G.mute=!G.mute;save();sb.textContent=G.mute?t('soundOn'):t('soundOff')};r4.append(sb);b.append(r4);
+  if(!canSave)b.append(el('p','note',t('cantSave')));
+
+  // export
+  b.append(el('div','sec-h',t('exportH')));
+  const exMsg=el('p','note');exMsg.setAttribute('aria-live','polite');
+  const stamp=dayKey();const slug=P.name.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase()||'commander';
+  const exRow=(label,desc,btnTxt,make)=>{const r=el('div','setrow');const tx=el('div');tx.style.minWidth='0';tx.append(el('div',null,label),el('div','label',desc));
+    const bt=el('button','btn',btnTxt);bt.onclick=()=>offerFile(make(),exMsg);r.append(tx,bt);b.append(r)};
+  exRow(t('exReport',{n:P.name}),t('exReportD'),t('exReportB'),()=>({filename:`${t('fn.report')}-${slug}-${stamp}.html`,data:reportHTMLFile(P)}));
+  exRow(t('exData',{n:P.name}),t('exDataD'),t('exDataB'),()=>({filename:`${t('fn.data')}-${slug}-${stamp}.csv`,data:dailyCSV(P)}));
+  exRow(t('exBk'),t('exBkD'),t('exBkB'),()=>({filename:`${t('fn.backup')}-${stamp}.json`,data:JSON.stringify({app:'missio-calcul',v:2,exported:new Date().toISOString(),lang:L,profiles:G.profiles},null,1)}));
+  const rr=el('div','setrow');const rtx=el('div');rtx.append(el('div',null,t('restore')),el('div','label',t('restoreD')));
+  const fi=el('input');fi.type='file';fi.accept='.json,application/json';fi.id='restore-file';fi.hidden=true;
+  const rb=el('button','btn',t('pickFile'));rb.onclick=()=>fi.click();
+  fi.onchange=()=>{const f=fi.files&&fi.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>restoreBackup(String(rd.result),exMsg,P.id);rd.onerror=()=>{exMsg.textContent=t('readFail')};rd.readAsText(f)};
+  rr.append(rtx,rb,fi);b.append(rr);b.append(exMsg);
+})}
+
+/* ================= Export / restore ================= */
+const dlPromise=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
+async function offerFile(f,msg){
+  const dl=await dlPromise;
+  if(dl){
+    try{await dl.save({filename:f.filename,data:f.data});msg.textContent=t('saved',{f:f.filename});return}
+    catch(e){const c=e&&e.code;
+      if(c==='declined'){msg.textContent=t('dlCancel');return}
+      if(c==='rate_limited'){msg.textContent=t('dlBusy');return}
+      if(c!=='unavailable'&&c!=='not_granted'&&c!=='capability_disabled'&&c!=='capability_removed'){msg.textContent=t('dlFail');return}}
+  }
+  if(!window.claude){try{const ext=f.filename.split('.').pop();const type={html:'text/html',csv:'text/csv',json:'application/json'}[ext]||'text/plain';
+    const url=URL.createObjectURL(new Blob([f.data],{type:type+';charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=f.filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);msg.textContent=t('saved',{f:f.filename});return}catch(e){}}
+  try{await navigator.clipboard.writeText(f.data);msg.textContent=t('clipOk',{f:f.filename})}
+  catch(e){msg.textContent=t('clipFail')}
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function dailyCSV(P){
+  const sep=L==='en'?',':';',dec=x=>L==='en'?x:x.replace('.',',');
+  const rows=[[t('csv.date'),t('csv.min'),t('thAnswers'),t('correct'),t('csv.wrong'),t('csv.pct')]];
+  Object.keys(P.log).sort().forEach(d=>{const l=P.log[d],n=l.ok+l.bad;rows.push([d,dec((l.sec/60).toFixed(1)),n,l.ok,l.bad,n?Math.round(l.ok/n*100):''])});
+  rows.push([]);rows.push([t('csv.type'),t('thAnswers'),t('correct'),t('csv.wrong'),t('csv.pct'),t('csv.avg')]);
+  SKILLS.forEach(k=>{const s=P.skill[k]||{ok:0,bad:0,sec:0},n=s.ok+s.bad;rows.push([t('sk.'+k),n,s.ok,s.bad,n?Math.round(s.ok/n*100):'',n?Math.round(s.sec/n):''])});
+  const q=v=>{v=String(v);return(v.includes(sep)||/["\n]/.test(v))?`"${v.replace(/"/g,'""')}"`:v};
+  return '﻿'+rows.map(r=>r.map(q).join(sep)).join('\r\n');
+}
+function reportHTMLFile(P){
+  const R=reportStats(P);const now=new Date();
+  const tile=([l,v,s])=>`<div class="t"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div><div class="s">${esc(s||'')}</div></div>`;
+  const skRows=SKILLS.map(k=>{const s=P.skill[k]||{ok:0,bad:0,sec:0},n=s.ok+s.bad,pc=pct(s.ok,s.bad);return`<tr><td>${esc(t('sk.'+k))}</td><td class="n">${n}</td><td class="n">${pc==null?'–':pc+'%'}</td><td class="n">${n?Math.round(s.sec/n)+' s':'–'}</td></tr>`}).join('');
+  const plRows=ALL.filter(x=>P.planet[x.id]||P.stars[x.id]).map(x=>{const st=P.planet[x.id]||{ok:0,bad:0},pc=pct(st.ok,st.bad);return`<tr><td>${esc(pn(x))}</td><td>${esc(ps(x))}</td><td class="n">${'★'.repeat(P.stars[x.id]||0)||'–'}</td><td class="n">${P.best[x.id]!=null?P.best[x.id]+'/10':'–'}</td><td class="n">${pc==null?'–':pc+'%'}</td></tr>`}).join('')||`<tr><td colspan="5">${esc(t('noMissions'))}</td></tr>`;
+  const stackTxt=R.stackLines?`<ul>${R.stackLines.map((l,i)=>`<li>${esc(l+(i===2&&R.stackHard?' '+t('stackHard'):''))}</li>`).join('')}</ul>`:`<p>${esc(t('stackNone'))}</p>`;
+  return `<!doctype html><html lang="${L}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(t('rep.title',{n:P.name}))} · ${esc(t('appName'))}</title>
+<style>body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1a2233;background:#fff;max-width:820px;margin:0 auto;padding:24px 16px;line-height:1.45}
+h1{font-size:26px;margin:0}h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:#2f6fd6;margin:28px 0 8px}.sub{color:#5a6378;margin:4px 0 0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:18px}.t{border:1px solid #d9dee8;border-radius:8px;padding:10px}.l{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#5a6378}.v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}.s{font-size:12px;color:#5a6378}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e6e9f0}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}.w{overflow-x:auto}
+.mono{font-family:ui-monospace,monospace;font-size:14px}footer{margin-top:32px;font-size:12px;color:#5a6378}@media print{body{padding:0}h2{break-after:avoid}}</style></head><body>
+<h1>${esc(t('rep.title',{n:P.name}))}</h1><p class="sub">${esc(t('rep.sub',{app:t('appName'),s:P.ship,d:now.toLocaleDateString(LOCALE[L]),t:now.toLocaleTimeString(LOCALE[L],{hour:'2-digit',minute:'2-digit'})}))}</p>
+<div class="tiles">${R.tiles.map(tile).join('')}</div>
+<h2>${esc(t('chartH14'))}</h2><div class="w">${chartSVG(R)}</div>
+<h2>${esc(t('skillsH'))}</h2><div class="w"><table><thead><tr><th>${esc(t('thType'))}</th><th class="n">${esc(t('thAnswers'))}</th><th class="n">${esc(t('thAcc'))}</th><th class="n">${esc(t('thAvg'))}</th></tr></thead><tbody>${skRows}</tbody></table></div>
+<h2>${esc(t('stackH2'))}</h2>${stackTxt}
+<h2>${esc(t('planetsH'))}</h2><div class="w"><table><thead><tr><th>${esc(t('thPlanet'))}</th><th>${esc(t('thSkill'))}</th><th class="n">${esc(t('thStars'))}</th><th class="n">${esc(t('thBest'))}</th><th class="n">${esc(t('thAcc'))}</th></tr></thead><tbody>${plRows}</tbody></table></div>
+<h2>${esc(t('weakH'))}</h2>${R.weak.length?`<p class="mono">${R.weak.map(esc).join(' · ')}</p>`:`<p>${esc(t('weakNone'))}</p>`}
+<footer>${esc(t('rep.foot',{m:lc(t(P.subMethod==='comp'?'comp':'borrow'))}))}</footer>
+</body></html>`;
+}
+function restoreBackup(text,msg,keepId){
+  let d;try{d=JSON.parse(text)}catch(e){msg.textContent=t('badBackup');return}
+  if(!d||d.app!=='missio-calcul'||d.v!==2||!Array.isArray(d.profiles)||!d.profiles.length){msg.textContent=t('badBackup');return}
+  const incoming=d.profiles.filter(p=>p&&p.id&&p.name).map(normalize);
+  const upd=incoming.filter(p=>G.profiles.some(x=>x.id===p.id)).length,add=incoming.length-upd;
+  openModal(b=>{modalHead(b,t('restoreH'));
+    b.append(el('p','note',t('restoreHas',{n:incoming.length===1?t('cmdCount1'):t('cmdCountN',{n:incoming.length}),list:incoming.map(p=>p.name).join(', ')})));
+    b.append(el('p','note',(add?t('restoreAdd',{n:add}):'')+(upd?t('restoreUpd',{n:upd}):'')));
+    const r=el('div','res-actions');const y=el('button','btn primary',t('restoreBtn'));
+    y.onclick=()=>{incoming.forEach(p=>{const i=G.profiles.findIndex(x=>x.id===p.id);if(i>=0)G.profiles[i]=p;else G.profiles.push(p)});
+      if(S){S=G.profiles.find(x=>x.id===S.id)||null;if(S&&!$('#scr-bridge').hidden)renderBridge()}save();parentPanel(keepId);toast(t('t.backup'),t('t.restored'),'✓')};
+    const n=el('button','btn',t('cancel'));n.onclick=()=>parentPanel(keepId);r.append(y,n);b.append(r)});
+}
+
+/* ================= Onboarding ================= */
+$('#ob-ship').innerHTML=shipSVG(HULLS[0][1]);
+$('#ob-go').onclick=()=>{
+  const n=$('#in-name').value.trim(),sh=$('#in-ship').value.trim();
+  if(!n){$('#in-name').focus();$('#in-name').placeholder=t('ob.nameReq');return}
+  const p=blankProfile();p.name=n;p.ship=sh||'Estel-1';G.profiles.push(p);save();selectProfile(p.id);
+};
+$('#ob-cancel').onclick=()=>renderProfiles();
+
+/* ================= Boot ================= */
+function boot(){
+  if(!G.profiles.length){startOnboard();return}
+  if(G.profiles.length===1){selectProfile(G.profiles[0].id);return}
+  renderProfiles();
+}
+setLang(G.lang||'ca');
+boot();
+})();
+</script>
+
+</body>
+</html>
