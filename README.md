@@ -1,5 +1,7 @@
 # Missió Càlcul
 
+### 🚀 [Juga ara · Juega ahora · Play now](https://inakifeliu.github.io/missio-calcul/)
+
 [Català](#català) · [Castellano](#castellano) · [English](#english)
 
 ---
@@ -27,7 +29,9 @@
 
 ### Com fer-lo servir
 
-És un únic fitxer, `index.html`, sense dependències ni servidor. Obre'l en un navegador (millor en una tauleta) o publica'l amb GitHub Pages. El progrés es desa al navegador del dispositiu (`localStorage`); fes una còpia de seguretat de tant en tant des de la zona de pares.
+**Juga directament a [inakifeliu.github.io/missio-calcul](https://inakifeliu.github.io/missio-calcul/)**, sense instal·lar res.
+
+És un únic fitxer, `index.html`, sense dependències ni servidor. També el pots descarregar i obrir en un navegador (millor en una tauleta), o publicar-lo al teu propi GitHub Pages. El progrés es desa al navegador del dispositiu (`localStorage`); fes una còpia de seguretat de tant en tant des de la zona de pares.
 
 ---
 
@@ -54,7 +58,9 @@
 
 ### Cómo usarlo
 
-Es un único archivo, `index.html`, sin dependencias ni servidor. Ábrelo en un navegador (mejor en una tableta) o publícalo con GitHub Pages. El progreso se guarda en el navegador del dispositivo (`localStorage`); haz una copia de seguridad de vez en cuando desde la zona de padres.
+**Juega directamente en [inakifeliu.github.io/missio-calcul](https://inakifeliu.github.io/missio-calcul/)**, sin instalar nada.
+
+Es un único archivo, `index.html`, sin dependencias ni servidor. También puedes descargarlo y abrirlo en un navegador (mejor en una tableta), o publicarlo en tu propio GitHub Pages. El progreso se guarda en el navegador del dispositivo (`localStorage`); haz una copia de seguridad de vez en cuando desde la zona de padres.
 
 ---
 
@@ -81,4 +87,6 @@ Es un único archivo, `index.html`, sin dependencias ni servidor. Ábrelo en un 
 
 ### How to use it
 
-It's a single file, `index.html`, with no dependencies or server. Open it in a browser (ideally on a tablet) or publish it with GitHub Pages. Progress is saved in the device's browser (`localStorage`); make a backup from the parents' area every now and then.
+**Play it directly at [inakifeliu.github.io/missio-calcul](https://inakifeliu.github.io/missio-calcul/)**, nothing to install.
+
+It's a single file, `index.html`, with no dependencies or server. You can also download it and open it in a browser (ideally on a tablet), or publish it on your own GitHub Pages. Progress is saved in the device's browser (`localStorage`); make a backup from the parents' area every now and then.
